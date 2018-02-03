@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 
@@ -10,7 +11,6 @@ namespace ownzone
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Start");
             ReadConfiguration();
 
             var settings = new MQTTSettings();
@@ -18,11 +18,11 @@ namespace ownzone
             var service = new MQTTService(settings);
             service.Connect();
 
-            var subscription = new Subscription(service);
-            Configuration.GetSection("Subscription").Bind(subscription);
-            subscription.Setup();
-
-            service.AddSubscription(subscription);
+            var subs = Configuration.GetSection("Subscriptions").Get<Subscription[]>();
+            foreach (var s in subs)
+            {
+                s.Setup(service);
+            }
         }
 
         static void ReadConfiguration()

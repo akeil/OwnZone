@@ -19,15 +19,21 @@ namespace ownzone
 
         public string ZonePath { get; set; }
 
-        public Subscription(MQTTService mqttService)
+        public Subscription()
         {
-            service = mqttService;
             zones = new List<IZone>();
         }
 
-        public void Setup()
+        public void Setup(MQTTService mqttService)
         {
-            readZones();
+            service = mqttService;
+            try{
+                readZones();
+            }
+            catch (FileNotFoundException)
+            {
+                // TODO log warning
+            }
         }
 
         // Tell if the given MQTT topic matches this subscription
