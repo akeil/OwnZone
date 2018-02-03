@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ownzone
 {
@@ -13,16 +15,23 @@ namespace ownzone
         {
             ReadConfiguration();
 
-            var settings = new MQTTSettings();
-            Configuration.GetSection("MQTT").Bind(settings);
-            var service = new MQTTService(settings);
-            service.Connect();
+            var provider = new ServiceCollection()
+                .AddLogging(builder =>
+                {
+                    builder.AddConfiguration(Configuration.GetSection("Logging"))
+                    .AddConsole()
+                    .AddDebug();
+                })
+                .AddSingleton<IMqttService, MqttService>()
+                .AddSingleton<IEngine, Engine>()
+                .BuildServiceProvider();
 
-            var subs = Configuration.GetSection("Subscriptions").Get<Subscription[]>();
-            foreach (var s in subs)
-            {
-                s.Setup(service);
-            }
+            var log = provider.GetService<ILoggerFactory>()
+                .CreateLogger(typeof(Program));
+            log.LogDebug("Starting OwnZone");
+
+            var engine = provider.GetService<IEngine>();
+            engine.Run();
         }
 
         static void ReadConfiguration()

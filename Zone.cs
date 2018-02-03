@@ -4,12 +4,57 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace ownzone
 {
+    public interface IEngine
+    {
+        void Run();
+    }
+
+    public class Engine : IEngine
+    {
+        private readonly ILogger<Engine> log;
+        private readonly IMqttService service;
+
+        public Engine(ILoggerFactory loggerFactory, IMqttService mqtt)
+        {
+            log = loggerFactory.CreateLogger<Engine>();
+            service = mqtt;
+        }
+
+        public void Run()
+        {
+            log.LogDebug("Engine start");
+            service.Connect();
+            readSubs();
+        }
+
+        private void readSubs()
+        {
+            var section = Program.Configuration.GetSection("Subscriptions");
+            var subs = section.Get<Subscription[]>();
+            foreach (var s in subs)
+            {
+                try
+                {
+                    s.Setup(service);
+                }
+                catch (FileNotFoundException)
+                {
+                    log.LogWarning("Could not find zones.json");
+                }
+                service.AddSubscription(s);
+            }
+        }
+    }
+
+
     public class Subscription
     {
-        private MQTTService service;
+        private IMqttService service;
 
         private List<IZone> zones;
 
@@ -24,16 +69,10 @@ namespace ownzone
             zones = new List<IZone>();
         }
 
-        public void Setup(MQTTService mqttService)
+        public void Setup(IMqttService mqttService)
         {
             service = mqttService;
-            try{
-                readZones();
-            }
-            catch (FileNotFoundException)
-            {
-                // TODO log warning
-            }
+            readZones();
         }
 
         // Tell if the given MQTT topic matches this subscription

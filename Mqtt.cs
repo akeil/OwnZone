@@ -4,25 +4,42 @@ using System.Collections.Generic;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace ownzone
 {
+    public interface IMqttService
+    {
+        void Connect();
+
+        void AddSubscription(Subscription subscription);
+
+        void Publish(string topic, string payload);
+    }
+
     public class MQTTSettings
     {
         public string Host { get; set; }
     }
 
-    public class MQTTService
+    public class MqttService : IMqttService
     {
         private const string CLIENT_ID = "ownzone";
+
+        private readonly ILogger<MqttService> log;
         
         private MqttClient client;
 
         private List<Subscription> subscriptions;
 
-        public MQTTService(MQTTSettings settings)
+        public MqttService(ILoggerFactory loggerFactory)
         {
+            log = loggerFactory.CreateLogger<MqttService>();
             subscriptions = new List<Subscription>();
+
+            var settings = new MQTTSettings();
+            Program.Configuration.GetSection("MQTT").Bind(settings);
             client = new MqttClient(settings.Host);
         }
 
