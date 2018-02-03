@@ -17,6 +17,7 @@ namespace ownzone
     public class Engine : IEngine
     {
         private readonly ILogger<Engine> log;
+
         private readonly IMqttService service;
 
         public Engine(ILoggerFactory loggerFactory, IMqttService mqtt)
@@ -38,14 +39,7 @@ namespace ownzone
             var subs = section.Get<Subscription[]>();
             foreach (var s in subs)
             {
-                try
-                {
-                    s.Setup(service);
-                }
-                catch (FileNotFoundException)
-                {
-                    log.LogWarning("Could not find zones.json");
-                }
+                s.Setup(log, service);
                 service.AddSubscription(s);
             }
         }
@@ -55,6 +49,8 @@ namespace ownzone
     public class Subscription
     {
         private IMqttService service;
+
+        private ILogger<Engine> log;
 
         private List<IZone> zones;
 
@@ -69,10 +65,18 @@ namespace ownzone
             zones = new List<IZone>();
         }
 
-        public void Setup(IMqttService mqttService)
+        public void Setup(ILogger<Engine> logger, IMqttService mqttService)
         {
+            log = logger;
             service = mqttService;
-            readZones();
+            try
+            {
+                readZones();
+            }
+            catch (FileNotFoundException)
+            {
+                log.LogWarning("Could not find {0}", ZonePath);
+            }
         }
 
         // Tell if the given MQTT topic matches this subscription
@@ -84,6 +88,8 @@ namespace ownzone
         // Handle a location update
         public void LocationUpdate(Message message)
         {
+            log.LogInformation("Location update");
+
             // list all zones that contain the current location
             var matches = new List<(double, IZone)>();
             foreach (var zone in zones)

@@ -57,6 +57,7 @@ namespace ownzone
                 x => x.TopicMatches(evt.Topic));
             if (matching.Count == 0)
             {
+                log.LogWarning("No subscription matches topic {0}", evt.Topic);
                 return;
             }
 
@@ -72,7 +73,8 @@ namespace ownzone
             }
             catch (JsonReaderException)
             {
-                // invalid, ignore
+                log.LogWarning("Failed to parse JSON from message body ({0}",
+                    evt.Topic);
             }
 
             if (message != null)
