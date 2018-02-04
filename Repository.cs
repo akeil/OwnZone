@@ -70,6 +70,8 @@ namespace ownzone
 
         private readonly Dictionary<string, Account> accounts;
 
+        private bool accountsRead;
+
         public Repository(ILoggerFactory loggerFactory)
         {
             log = loggerFactory.CreateLogger<Repository>();
@@ -82,48 +84,66 @@ namespace ownzone
                 settings.BaseDirectory);
 
             accounts = new Dictionary<string, Account>();
-            readAccounts();
+            accountsRead = false;
         }
 
         public IEnumerable<string> GetAccountNames()
         {
-            return accounts.Keys;
+            var task = GetAccountNamesAsync();
+            task.Wait();
+            return task.Result;
         }
 
         public async Task<IEnumerable<string>> GetAccountNamesAsync()
         {
-            return GetAccountNames();
+            await lazyReadAccountsAsync();
+            return accounts.Keys;
         }
 
         public Account GetAccount(string name)
         {
-            return accounts[name];
+            var task = GetAccountAsync(name);
+            task.Wait();
+            return task.Result;
         }
 
         public async Task<Account> GetAccountAsync(string name)
         {
-            return GetAccount(name);
+            await lazyReadAccountsAsync();
+            return accounts[name];
         }
 
         public IEnumerable<IZone> GetZones(string name)
         {
-            var account = GetAccount(name);
-            return account.Zones;
+            var task = GetZonesAsync(name);
+            task.Wait();
+            return task.Result;
         }
 
         public async Task<IEnumerable<IZone>> GetZonesAsync(string name)
         {
-            return GetZones(name);
+            await lazyReadAccountsAsync();
+            var account = await GetAccountAsync(name);
+            return account.Zones;
         }
 
-        private void readAccounts()
+        private async Task lazyReadAccountsAsync()
+        {
+            if (!accountsRead)
+            {
+                await readAccountsAsync();
+                accountsRead = true;
+            }
+        }
+
+        private async Task readAccountsAsync()
         {
             var path = settings.BaseDirectory;
             foreach (var filename in Directory.EnumerateFiles(path, "*.json"))
             {
                 try
                 {
-                    var account = readAccount(filename);
+                    var account = await readAccountAsync(filename);
                     accounts[account.Name] = account;
                 }
                 catch (AccountReadException ex)
@@ -135,7 +155,7 @@ namespace ownzone
             }
         }
 
-        private Account readAccount(string path)
+        private async Task<Account> readAccountAsync(string path)
         {
             log.LogInformation("Read account from {0}.", path);
 
@@ -143,7 +163,7 @@ namespace ownzone
             using (StreamReader f = new StreamReader(path, Encoding.UTF8))
             using(JsonTextReader reader = new JsonTextReader(f))
             {
-                root = JObject.Load(reader);
+                root = await JObject.LoadAsync(reader);
             }
 
             var name = Path.GetFileNameWithoutExtension(path);

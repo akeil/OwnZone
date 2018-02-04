@@ -46,6 +46,11 @@ namespace ownzone
 
         public void UpdateZoneStatus(string subName, string zoneName, bool status)
         {
+            UpdateZoneStatusAsync(subName, zoneName, status).Wait();
+        }
+
+        public async Task UpdateZoneStatusAsync(string subName, string zoneName, bool status)
+        {
             var key = subName + "." + zoneName;
             var changed = false;
             try
@@ -71,11 +76,6 @@ namespace ownzone
             }
         }
 
-        public async Task UpdateZoneStatusAsync(string subName, string zoneName, bool status)
-        {
-            UpdateZoneStatus(subName, zoneName, status);
-        }
-
         protected virtual void OnZoneStatusChanged(ZoneStatusChangedEventArgs args)
         {
             log.LogDebug("Dispatch status change for {0}.{1}.",
@@ -87,6 +87,11 @@ namespace ownzone
         }
 
         public void UpdateCurrentZone(string subName, string zoneName)
+        {
+            UpdateCurrentZoneAsync(subName, zoneName).Wait();
+        }
+
+        public async Task UpdateCurrentZoneAsync(string subName, string zoneName)
         {
             if (String.IsNullOrEmpty(zoneName))
             {
@@ -114,11 +119,6 @@ namespace ownzone
                 };
                 OnCurrentZoneChanged(args);
             }
-        }
-
-        public async Task UpdateCurrentZoneAsync(string subName, string zoneName)
-        {
-            UpdateCurrentZone(subName, zoneName);
         }
 
         protected virtual void OnCurrentZoneChanged(CurrentZoneChangedEventArgs args)
