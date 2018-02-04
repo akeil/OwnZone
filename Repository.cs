@@ -20,28 +20,28 @@ namespace ownzone
     }
 
     // Holds zone definitions
-    public interface IZoneRepository
+    public interface IRepository
     {
         // Get the list of zones associated to the given subscription name.
         List<IZone> GetZones(string name);
     }
 
     // Configuration settings for the Zone Repository.
-    class ZoneRepoSettings
+    class RepoSettings
     {
         public string BaseDirectory { get; set; }
     }
 
-    public class ZoneRepository : IZoneRepository
+    public class Repository : IRepository
     {
-        private readonly ILogger<ZoneRepository> log;
+        private readonly ILogger<Repository> log;
 
-        private readonly ZoneRepoSettings settings;
+        private readonly RepoSettings settings;
 
-        public ZoneRepository(ILoggerFactory loggerFactory)
+        public Repository(ILoggerFactory loggerFactory)
         {
-            log = loggerFactory.CreateLogger<ZoneRepository>();
-            settings = new ZoneRepoSettings();
+            log = loggerFactory.CreateLogger<Repository>();
+            settings = new RepoSettings();
 
             var config = Program.Configuration.GetSection("ZoneRepository");
             config.Bind(settings);

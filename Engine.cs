@@ -17,18 +17,18 @@ namespace ownzone
 
         private readonly IMqttService mqtt;
 
-        private readonly IZoneRepository zones;
+        private readonly IRepository repo;
 
         private readonly IStateRegistry states;
 
         private List<Subscription> subscriptions;
 
         public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
-            IZoneRepository zoneRepository, IStateRegistry stateRegistry)
+            IRepository repository, IStateRegistry stateRegistry)
         {
             log = loggerFactory.CreateLogger<Engine>();
             mqtt = mqttService;
-            zones = zoneRepository;
+            repo = repository;
             states = stateRegistry;
             subscriptions = new List<Subscription>();
         }
@@ -115,12 +115,12 @@ namespace ownzone
         {
             log.LogDebug("Handle location update for {0}.", evt.Name);
 
-            var zonelist = zones.GetZones(evt.Name);
+            var zones = repo.GetZones(evt.Name);
 
             // check all zones against the updated location
             // and compose a list of zones where we are "in"
             var matches = new List<(double, IZone)>();
-            foreach (var zone in zonelist)
+            foreach (var zone in zones)
             {
                 var match = zone.Match(evt);
                 states.UpdateZoneStatus(evt.Name, zone.Name, match.contains);
