@@ -169,7 +169,7 @@ namespace ownzone
             var topic = String.Format("{0}/{1}/current",
                 TopicPrefix, evt.SubName);
             var message = evt.ZoneName != null ? evt.ZoneName : "";
-            mqtt.Publish(topic, message);
+            await mqtt.PublishAsync(topic, message);
         }
 
         private async void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
@@ -177,7 +177,7 @@ namespace ownzone
             var topic = String.Format("{0}/{1}/status/{2}",
                 TopicPrefix, evt.SubName, evt.ZoneName);
             var message = evt.Status ? "in" : "out";
-            mqtt.Publish(topic, message);
+            await mqtt.PublishAsync(topic, message);
         }
 
         // Subscriptions -------------------------------------------------------
