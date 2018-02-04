@@ -31,9 +31,11 @@ namespace ownzone
         Task PublishAsync(string topic, string payload);
     }
 
-    class MqttSettings
+    class MqttConfig
     {
         public string Host { get; set; }
+
+        public int Port { get; set; }
     }
 
     public class MqttService : IMqttService
@@ -48,9 +50,13 @@ namespace ownzone
         {
             log = loggerFactory.CreateLogger<MqttService>();
 
-            var settings = new MqttSettings();
-            Program.Configuration.GetSection("MQTT").Bind(settings);
-            client = new MqttClient(settings.Host);
+            var config = new MqttConfig();
+            Program.Configuration.GetSection("MQTT").Bind(config);
+            var port = config.Port != 0 ? config.Port : MqttSettings.MQTT_BROKER_DEFAULT_PORT;
+
+            client = new MqttClient(config.Host, port, false, null, null,
+                MqttSslProtocols.None);
+
             client.MqttMsgPublishReceived += messageReceived;
         }
 
