@@ -34,8 +34,41 @@ namespace ownzone
         {
             log.LogDebug("Engine start");
             service.Connect();
+            service.MessageReceived += messageReceived;
             readSubs();
         }
+
+        // Raw Messages --------------------------------------------------------
+
+        private void messageReceived(object sender, MessageReceivedEventArgs evt)
+        {
+            log.LogDebug("Got message for {0}", evt.Topic);
+            // TODO: throws
+            var updateEvent = convertOwnTracksMessage(evt.Message);
+
+
+        }
+
+        private LocationUpdate convertOwnTracksMessage(string jsonString)
+        {
+            try
+            {
+                var raw = JsonConvert.DeserializeObject<OwnTracksMessage>(jsonString);
+                if (!raw.IsValid())
+                {
+                    throw new Exception("Invalid Message");
+                }
+                return raw.ToLocationUpdate();
+            }
+            catch (JsonReaderException)
+            {
+                log.LogWarning("Failed to parse JSON from message body");
+                throw new Exception("Invalid Message");
+            }
+        }
+
+
+        // Subscriptions -------------------------------------------------------
 
         private void readSubs()
         {
@@ -49,6 +82,58 @@ namespace ownzone
         }
     }
 
+    // Message for a location update.
+    public class LocationUpdate : ILocation
+    {
+        
+        public LocationUpdate(double lat, double lon)
+        {
+            Lat = lat;
+            Lon = lon;
+        }
+
+        public double Lat { get; set; }
+
+        public double Lon { get; set; }
+    }
+
+    // Deserialization helper for OwnTrack messages.
+    // JSON Messages look like this:
+    // {
+    //   "_type":"location",
+    //   "tid":"et",
+    //   "acc":12,
+    //   "batt":92,
+    //   "conn":"w",
+    //   "doze":false,
+    //   "lat":50.9326135,
+    //   "lon":6.9464344,
+    //   "tst":1489529135
+    // }
+    class OwnTracksMessage
+    {
+        public string _type { get; set; }
+
+        public double lat { get; set; }
+
+        public double lon { get; set; }
+
+        public int acc { get; set; }
+
+        // Check if all required fields are set.
+        //
+        // Used after mapping the JSON object to make sure that the JSON message
+        // did contain all of the expected fields.
+        public bool IsValid()
+        {
+            return lat != 0 && lon != 0;
+        }
+
+        // convert to OwnZone message
+        public LocationUpdate ToLocationUpdate(){
+            return new LocationUpdate(lat, lon);
+        }
+    }
 
     public class Subscription
     {

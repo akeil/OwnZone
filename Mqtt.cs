@@ -11,6 +11,9 @@ namespace ownzone
 {
     public interface IMqttService
     {
+        // Event handler for incoming messages
+        event EventHandler<MessageReceivedEventArgs> MessageReceived;
+
         // Connect to the MQTT broker.
         void Connect();
 
@@ -20,7 +23,7 @@ namespace ownzone
         void Publish(string topic, string payload);
     }
 
-    public class MqttSettings
+    class MqttSettings
     {
         public string Host { get; set; }
     }
@@ -45,6 +48,8 @@ namespace ownzone
             client = new MqttClient(settings.Host);
         }
 
+        public event EventHandler<MessageReceivedEventArgs> MessageReceived;
+
         public void Connect()
         {
             client.MqttMsgPublishReceived += messageReceived;
@@ -62,29 +67,24 @@ namespace ownzone
                 return;
             }
 
-            LocationUpdate update = null;
-            var json = Encoding.UTF8.GetString(evt.Message);
-            try
-            {
-                var raw = JsonConvert.DeserializeObject<RawMessage>(json);
-                if (raw.Accept())
-                {
-                    update = raw.AsLocationUpdate();
-                }
-            }
-            catch (JsonReaderException)
-            {
-                log.LogWarning("Failed to parse JSON from message body ({0}",
-                    evt.Topic);
-            }
+            var args = new MessageReceivedEventArgs();
+            args.Topic = evt.Topic;
+            args.Message = Encoding.UTF8.GetString(evt.Message);
+            OnMessageReceived(args);
+        }
 
-            if (update != null)
-            {
-                foreach (var sub in matching)
-                {
-                    sub.HandleLocationUpdate(update);
-                }
+        protected virtual void OnMessageReceived(MessageReceivedEventArgs args)
+        {
+            log.LogDebug("Got message for topic {0}", args.Topic);
+            var handler = MessageReceived;
+            if (handler != null) {
+                handler(this, args);
             }
+        }
+
+        public void Subscribe(string topic)
+        {
+
         }
 
         public void AddSubscription(Subscription subscription)
@@ -102,56 +102,10 @@ namespace ownzone
         }
     }
 
-    // Deserialization helper for OwnTrack messages.
-    // JSON Messages look like this:
-    // {
-    //   "_type":"location",
-    //   "tid":"et",
-    //   "acc":12,
-    //   "batt":92,
-    //   "conn":"w",
-    //   "doze":false,
-    //   "lat":50.9326135,
-    //   "lon":6.9464344,
-    //   "tst":1489529135
-    // }
-    class RawMessage
+    public class MessageReceivedEventArgs : EventArgs
     {
-        public string _type { get; set; }
+        public string Topic { get; set; }
 
-        public double lat { get; set; }
-
-        public double lon { get; set; }
-
-        public int acc { get; set; }
-
-        // Check if all required fields are set.
-        //
-        // Used after mapping the JSON object to make sure that the JSON message
-        // did contain all of the expected fields.
-        public bool Accept()
-        {
-            return lat != 0 && lon != 0;
-        }
-
-        // convert to OwnZone message
-        public LocationUpdate AsLocationUpdate(){
-            return new LocationUpdate(lat, lon);
-        }
-    }
-
-    // Message for a location update.
-    public class LocationUpdate : ILocation
-    {
-        
-        public LocationUpdate(double lat, double lon)
-        {
-            Lat = lat;
-            Lon = lon;
-        }
-
-        public double Lat { get; set; }
-
-        public double Lon { get; set; }
+        public string Message { get; set; }
     }
 }
