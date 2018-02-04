@@ -264,7 +264,6 @@ namespace ownzone
             var subs = section.Get<Subscription[]>();
             foreach (var s in subs)
             {
-                s.Setup(log, service, zoneRepo);
                 service.Subscribe(s.Topic);
                 subscriptions.Add(s);
             }
@@ -344,57 +343,8 @@ namespace ownzone
 
     public class Subscription
     {
-        private IMqttService service;
-
-        private IZoneRepository zoneRepo;
-
-        private ILogger<Engine> log;
-
         public string Name { get; set; }
 
         public string Topic { get; set; }
-
-        public string OutTopic { get; set; }
-
-        public Subscription()
-        {
-
-        }
-
-        public void Setup(ILogger<Engine> logger, IMqttService mqttService,
-            IZoneRepository zoneRepository)
-        {
-            log = logger;
-            service = mqttService;
-            zoneRepo = zoneRepository;
-            log.LogDebug("Setup subscription {0}", Name);
-        }
-
-        // publish the top zone and the list of matches
-        private void publishZones(List<(double, IZone)> matches)
-        {
-            var bestName = "";
-            var allNames = "";
-            if (matches.Count != 0)
-            {
-                bestName = matches[0].Item2.Name;
-
-                var namelist = matches.ConvertAll(m => m.Item2.Name);
-                allNames = String.Join("\n", namelist);
-            }
-
-            var bestTopic = OutTopic + "/current";
-            service.Publish(bestTopic, bestName);
-
-            var allTopic = OutTopic + "/list";
-            service.Publish(allTopic, allNames);
-        }
-
-        // publish the status ("in" or "out") for a zone
-        private void publishZoneStatus(string name, string status)
-        {
-            var topic = OutTopic + "/at/" + name;
-            service.Publish(topic, status);
-        }
     }
 }
