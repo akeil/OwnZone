@@ -53,6 +53,7 @@ namespace ownzone
         public List<IZone> GetZones(string name)
         {
             var path = zoneFilePath(name);
+            log.LogDebug("Read zones from {0}", path);
             return readZoneFile(path);
         }
 

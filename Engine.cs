@@ -20,11 +20,14 @@ namespace ownzone
 
         private readonly IMqttService service;
 
+        private readonly IZoneRepository zoneRepo;
+
         public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
-            IZoneRepository zoneRepo)
+            IZoneRepository zoneRepository)
         {
             log = loggerFactory.CreateLogger<Engine>();
             service = mqtt;
+            zoneRepo = zoneRepository;
         }
 
         public void Run()
@@ -40,7 +43,7 @@ namespace ownzone
             var subs = section.Get<Subscription[]>();
             foreach (var s in subs)
             {
-                s.Setup(log, service);
+                s.Setup(log, service, zoneRepo);
                 service.AddSubscription(s);
             }
         }
@@ -51,9 +54,11 @@ namespace ownzone
     {
         private IMqttService service;
 
+        private IZoneRepository zoneRepo;
+
         private ILogger<Engine> log;
 
-        private List<IZone> zones;
+        public string Name { get; set; }
 
         public string Topic { get; set; }
 
@@ -63,21 +68,16 @@ namespace ownzone
 
         public Subscription()
         {
-            zones = new List<IZone>();
+
         }
 
-        public void Setup(ILogger<Engine> logger, IMqttService mqttService)
+        public void Setup(ILogger<Engine> logger, IMqttService mqttService,
+            IZoneRepository zoneRepository)
         {
             log = logger;
             service = mqttService;
-            try
-            {
-                readZones();
-            }
-            catch (FileNotFoundException)
-            {
-                log.LogWarning("Could not find {0}", ZonePath);
-            }
+            zoneRepo = zoneRepository;
+            log.LogDebug("Setup subscription {0}", Name);
         }
 
         // Tell if the given MQTT topic matches this subscription
@@ -89,7 +89,9 @@ namespace ownzone
         // Handle a location update
         public void HandleLocationUpdate(LocationUpdate update)
         {
-            log.LogInformation("Location update");
+            log.LogInformation("Location update for {0}", Name);
+
+            var zones = zoneRepo.GetZones(Name);
 
             // list all zones that contain the current location
             var matches = new List<(double, IZone)>();
@@ -160,55 +162,5 @@ namespace ownzone
             var topic = OutTopic + "/at/" + name;
             service.Publish(topic, status);
         }
-
-        // Read the list of Zones from the JSON file at ZonePath.
-        private void readZones()
-        {
-            // Expect a JSON array like this:
-            // [
-            //   {
-            //     "Kind": "Point",
-            //     <other properties>
-            //   },
-            //   {...}
-            // ]
-            // 
-            // Depending on the Kind, a different concrete class needs
-            // to be instantiated:
-            // - Point
-            // - Box
-            using (StreamReader f = new StreamReader(ZonePath, Encoding.UTF8))
-            using(JsonTextReader reader = new JsonTextReader(f))
-            {
-                var arr = JToken.ReadFrom(reader);
-                if (arr.Type != JTokenType.Array)
-                {
-                    throw new Exception("Unexpected Type, not an array.");
-                }
-                foreach (var child in arr.Children())
-                {
-                    if (child.Type != JTokenType.Object)
-                    {
-                        throw new Exception("Unexpected type, not an object.");
-                    }
-
-                    JObject obj = (JObject) child;
-                    var kind = obj.Value<string>("Kind");
-                    if (kind == "Point")
-                    {
-                        zones.Add(obj.ToObject<Point>());
-                    }
-                    else if (kind == "Bounds")
-                    {
-                        zones.Add(obj.ToObject<Bounds>());
-                    }
-                    else
-                    {
-                        throw new Exception("Unsupported Zone kind.");
-                    }
-                }
-            }
-        }
     }
-
 }
