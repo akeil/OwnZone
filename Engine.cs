@@ -161,7 +161,7 @@ namespace ownzone
             foreach (var s in subs)
             {
                 s.Setup(log, service, zoneRepo);
-                service.AddSubscription(s);
+                service.Subscribe(s.Topic);
                 subscriptions.Add(s);
             }
         }
@@ -236,8 +236,6 @@ namespace ownzone
 
         public string OutTopic { get; set; }
 
-        public string ZonePath { get; set; }
-
         public Subscription()
         {
 
@@ -250,62 +248,6 @@ namespace ownzone
             service = mqttService;
             zoneRepo = zoneRepository;
             log.LogDebug("Setup subscription {0}", Name);
-        }
-
-        // Tell if the given MQTT topic matches this subscription
-        public bool TopicMatches(string candidate)
-        {
-            return candidate == Topic;
-        }
-
-        // Handle a location update
-        public void HandleLocationUpdate(LocationUpdatedEventArgs update)
-        {
-            log.LogInformation("Location update for {0}", Name);
-
-            var zones = zoneRepo.GetZones(Name);
-
-            // list all zones that contain the current location
-            var matches = new List<(double, IZone)>();
-            foreach (var zone in zones)
-            {
-                var match = zone.Match(update);
-                if (match.contains)
-                {
-                    matches.Add((match.distance, zone));
-                    if (!zone.Active)
-                    {
-                        zone.Active = true;
-                        publishZoneStatus(zone.Name, "in");
-                    }
-                    
-                }
-                else
-                {
-                    if (zone.Active)
-                    {
-                        zone.Active = false;
-                        publishZoneStatus(zone.Name, "out");
-                    }
-                }
-            }
-
-            matches.Sort(byRelevance);
-
-            publishZones(matches);
-        }
-
-        // delegate to sort a list of matches by relevance.
-        private static int byRelevance((double, IZone) a, (double, IZone) b)
-        {
-            if (a.Item1 > b.Item1) 
-            {
-                return 1;
-            } else if (a.Item1 < b.Item1) {
-                return -1;
-            } else {
-                return 0;
-            }
         }
 
         // publish the top zone and the list of matches

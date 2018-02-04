@@ -17,7 +17,8 @@ namespace ownzone
         // Connect to the MQTT broker.
         void Connect();
 
-        void AddSubscription(Subscription subscription);
+        // Subscribe to the given MQTT topic
+        void Subscribe(string topic);
 
         // Publish a string message to the given MQTT topic.
         void Publish(string topic, string payload);
@@ -34,14 +35,11 @@ namespace ownzone
 
         private readonly ILogger<MqttService> log;
         
-        private MqttClient client;
-
-        private List<Subscription> subscriptions;
+        private readonly MqttClient client;
 
         public MqttService(ILoggerFactory loggerFactory)
         {
             log = loggerFactory.CreateLogger<MqttService>();
-            subscriptions = new List<Subscription>();
 
             var settings = new MqttSettings();
             Program.Configuration.GetSection("MQTT").Bind(settings);
@@ -59,14 +57,6 @@ namespace ownzone
         // handle incoming MQTT message
         private void messageReceived(object sender, MqttMsgPublishEventArgs evt)
         {
-            var matching = subscriptions.FindAll(
-                x => x.TopicMatches(evt.Topic));
-            if (matching.Count == 0)
-            {
-                log.LogWarning("No subscription matches topic {0}", evt.Topic);
-                return;
-            }
-
             var args = new MessageReceivedEventArgs();
             args.Topic = evt.Topic;
             args.Message = Encoding.UTF8.GetString(evt.Message);
@@ -84,15 +74,9 @@ namespace ownzone
 
         public void Subscribe(string topic)
         {
-
-        }
-
-        public void AddSubscription(Subscription subscription)
-        {
-            var topics = new string[] { subscription.Topic };
+            var topics = new string[] { topic };
             var qosLevels = new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE };
             client.Subscribe(topics, qosLevels);
-            subscriptions.Add(subscription);
         }
 
         public void Publish(string topic, string payload)
