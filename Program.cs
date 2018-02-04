@@ -27,7 +27,7 @@ namespace ownzone
                 .BuildServiceProvider();
 
             var log = provider.GetService<ILoggerFactory>()
-                .CreateLogger(typeof(Program));
+                .CreateLogger<Program>();
             log.LogDebug("Starting OwnZone");
 
             var engine = provider.GetService<IEngine>();

@@ -11,14 +11,16 @@ namespace ownzone
 {
     public interface IMqttService
     {
+        // Connect to the MQTT broker.
         void Connect();
 
         void AddSubscription(Subscription subscription);
 
+        // Publish a string message to the given MQTT topic.
         void Publish(string topic, string payload);
     }
 
-    public class MQTTSettings
+    public class MqttSettings
     {
         public string Host { get; set; }
     }
@@ -38,12 +40,11 @@ namespace ownzone
             log = loggerFactory.CreateLogger<MqttService>();
             subscriptions = new List<Subscription>();
 
-            var settings = new MQTTSettings();
+            var settings = new MqttSettings();
             Program.Configuration.GetSection("MQTT").Bind(settings);
             client = new MqttClient(settings.Host);
         }
 
-        // Connect to the MQTT service
         public void Connect()
         {
             client.MqttMsgPublishReceived += messageReceived;
@@ -61,14 +62,14 @@ namespace ownzone
                 return;
             }
 
-            Message message = null;
+            LocationUpdate update = null;
             var json = Encoding.UTF8.GetString(evt.Message);
             try
             {
                 var raw = JsonConvert.DeserializeObject<RawMessage>(json);
                 if (raw.Accept())
                 {
-                    message = raw.AsMessage();
+                    update = raw.AsLocationUpdate();
                 }
             }
             catch (JsonReaderException)
@@ -77,11 +78,11 @@ namespace ownzone
                     evt.Topic);
             }
 
-            if (message != null)
+            if (update != null)
             {
                 foreach (var sub in matching)
                 {
-                    sub.LocationUpdate(message);
+                    sub.HandleLocationUpdate(update);
                 }
             }
         }
@@ -134,16 +135,16 @@ namespace ownzone
         }
 
         // convert to OwnZone message
-        public Message AsMessage(){
-            return new Message(lat, lon);
+        public LocationUpdate AsLocationUpdate(){
+            return new LocationUpdate(lat, lon);
         }
     }
 
-
-    public class Message : ILocation
+    // Message for a location update.
+    public class LocationUpdate : ILocation
     {
         
-        public Message(double lat, double lon)
+        public LocationUpdate(double lat, double lon)
         {
             Lat = lat;
             Lon = lon;

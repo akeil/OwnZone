@@ -86,7 +86,7 @@ namespace ownzone
         }
 
         // Handle a location update
-        public void LocationUpdate(Message message)
+        public void HandleLocationUpdate(LocationUpdate update)
         {
             log.LogInformation("Location update");
 
@@ -94,7 +94,7 @@ namespace ownzone
             var matches = new List<(double, IZone)>();
             foreach (var zone in zones)
             {
-                var match = zone.Match(message);
+                var match = zone.Match(update);
                 if (match.contains)
                 {
                     matches.Add((match.distance, zone));
