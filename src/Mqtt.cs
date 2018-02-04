@@ -44,7 +44,7 @@ namespace ownzone
 
     public class MqttService : IMqttService
     {
-        private const string CLIENT_ID = "ownzone";
+        private const string CLIENT_ID_PREFIX = "ownzone";
 
         private readonly ILogger<MqttService> log;
 
@@ -75,10 +75,12 @@ namespace ownzone
 
         public async Task ConnectAsync()
         {
+            var machine = Environment.MachineName;
+            var clientId = String.Format("{0}-{1}", CLIENT_ID_PREFIX, machine);
             await Task.Run( () =>
-                client.Connect(CLIENT_ID, config.Username, config.Password)
+                client.Connect(clientId, config.Username, config.Password)
             );
-            log.LogInformation("Connected to MQTT broker.");
+            log.LogInformation("Connected to MQTT broker as {0}.", clientId);
         }
 
         // handle incoming MQTT message
