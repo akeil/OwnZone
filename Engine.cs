@@ -22,28 +22,21 @@ namespace ownzone
 
         private readonly IZoneRepository zoneRepo;
 
+        private readonly IStateRepository states;
+
         private List<Subscription> subscriptions;
 
-        private Dictionary<string, string> currentZone;
-
-        private Dictionary<string, bool> zoneStatus;
-
         public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
-            IZoneRepository zoneRepository)
+            IZoneRepository zoneRepository, IStateRepository stateRepository)
         {
             log = loggerFactory.CreateLogger<Engine>();
             service = mqtt;
             zoneRepo = zoneRepository;
+            states = stateRepository;
             subscriptions = new List<Subscription>();
-            currentZone = new Dictionary<string, string>();
-            zoneStatus = new Dictionary<string, bool>();
         }
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
-
-        public event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;
-
-        public event EventHandler<ZoneStatusChangedEventArgs> ZoneStatusChanged;
 
         public void Run()
         {
@@ -51,10 +44,10 @@ namespace ownzone
             service.MessageReceived += messageReceived;
             readSubs();
 
-            // listen to our own events
-            LocationUpdated += locationUpdated;
-            ZoneStatusChanged += zoneStatusChanged;
-            CurrentZoneChanged += currentZoneChanged;
+            // register event handler
+            this.LocationUpdated += locationUpdated;
+            states.ZoneStatusChanged += zoneStatusChanged;
+            states.CurrentZoneChanged += currentZoneChanged;
 
             log.LogInformation("Engine started.");
         }
@@ -133,7 +126,7 @@ namespace ownzone
             foreach (var zone in zones)
             {
                 var match = zone.Match(evt);
-                updateZoneStatus(evt.Name, zone.Name, match.contains);
+                states.UpdateZoneStatus(evt.Name, zone.Name, match.contains);
                 if (match.contains)
                 {
                     matches.Add((match.distance, zone));
@@ -147,7 +140,7 @@ namespace ownzone
                 matches.Sort(byRelevance);
                 currentZoneName = matches[0].Item2.Name;
             }
-            updateCurrentZone(evt.Name, currentZoneName);
+            states.UpdateCurrentZone(evt.Name, currentZoneName);
         }
 
         // delegate to sort a list of matches by relevance.
@@ -160,82 +153,6 @@ namespace ownzone
                 return -1;
             } else {
                 return 0;
-            }
-        }
-
-        private void updateZoneStatus(string subName, string zoneName, bool status)
-        {
-            var key = subName + "." + zoneName;
-            var changed = false;
-            try
-            {
-                changed = status != zoneStatus[key];
-            }
-            catch (KeyNotFoundException)
-            {
-                changed = true;
-            }
-
-            zoneStatus[key] = status;
-
-            if (changed)
-            {
-                var args = new ZoneStatusChangedEventArgs()
-                {
-                    SubName=subName,
-                    ZoneName=zoneName,
-                    Status=status
-                };
-                OnZoneStatusChanged(args);
-            }
-        }
-
-        protected virtual void OnZoneStatusChanged(ZoneStatusChangedEventArgs args)
-        {
-            log.LogDebug("Dispatch status change for {0}.{1}.",
-                args.SubName, args.ZoneName);
-            var handler = ZoneStatusChanged;
-            if (handler != null) {
-                handler(this, args);
-            }
-        }
-
-        private void updateCurrentZone(string subName, string zoneName)
-        {
-            if (String.IsNullOrEmpty(zoneName))
-            {
-                zoneName = null;
-            }
-
-            var changed = false;
-            try
-            {
-                changed = zoneName != currentZone[subName];
-            }
-            catch (KeyNotFoundException)
-            {
-                changed = true;
-            }
-
-            currentZone[subName] = zoneName;
-
-            if (changed)
-            {
-                var args = new CurrentZoneChangedEventArgs()
-                {
-                    SubName = subName,
-                    ZoneName = zoneName
-                };
-                OnCurrentZoneChanged(args);
-            }
-        }
-
-        protected virtual void OnCurrentZoneChanged(CurrentZoneChangedEventArgs args)
-        {
-            log.LogDebug("Dispatch zone change for {0}.", args.SubName);
-            var handler = CurrentZoneChanged;
-            if (handler != null) {
-                handler(this, args);
             }
         }
 
@@ -285,22 +202,6 @@ namespace ownzone
             copy.Name = name;
             return copy;
         }
-    }
-
-    public class ZoneStatusChangedEventArgs : EventArgs
-    {
-        public string SubName { get; set; }
-
-        public string ZoneName { get; set; }
-
-        public bool Status { get; set; }
-    }
-
-    public class CurrentZoneChangedEventArgs : EventArgs
-    {
-        public string SubName { get; set; }
-
-        public string ZoneName { get; set; }
     }
 
     // Deserialization helper for OwnTrack messages.

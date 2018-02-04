@@ -22,11 +22,11 @@ namespace ownzone
     // Holds zone definitions
     public interface IZoneRepository
     {
-        // Get the list of zones associated to the given name.
+        // Get the list of zones associated to the given subscription name.
         List<IZone> GetZones(string name);
     }
 
-    // Configuration settings for the Zone Repository
+    // Configuration settings for the Zone Repository.
     class ZoneRepoSettings
     {
         public string BaseDirectory { get; set; }
