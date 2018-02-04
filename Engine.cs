@@ -112,8 +112,45 @@ namespace ownzone
         {
             log.LogDebug("Got location update for {0}", evt.Name);
 
+            var zones = zoneRepo.GetZones(evt.Name);
+
+            // check all zones against the updated location
+            // and compose a list of zones where we are "in"
+            var matches = new List<(double, IZone)>();
+            foreach (var zone in zones)
+            {
+                var match = zone.Match(evt);
+                if (match.contains)
+                {
+                    // if previously "out", event zone entered
+                }
+                else
+                {
+                    // if previously "in", event zone left
+                }
+            }
+
+            // find the best match
+            if (matches.Count != 0)
+            {
+                matches.Sort(byRelevance);
+                var bestMatch = matches[0];
+                // if the best match changed, event zone changed
+            }
         }
 
+        // delegate to sort a list of matches by relevance.
+        private static int byRelevance((double, IZone) a, (double, IZone) b)
+        {
+            if (a.Item1 > b.Item1)
+            {
+                return 1;
+            } else if (a.Item1 < b.Item1) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
 
         // Subscriptions -------------------------------------------------------
 
