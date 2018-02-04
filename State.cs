@@ -4,10 +4,15 @@ using Microsoft.Extensions.Logging;
 
 namespace ownzone
 {
+    // Holds status values for zones.
     public interface IStateRepository
     {
+        // Update the current zone for a subscription.
+        // This may trigger a CurrentZoneChanged event.
         void UpdateCurrentZone(string name, string zone);
 
+        // Update the status for a zone.
+        // This may trigger a ZoneStatusChanged event.
         void UpdateZoneStatus(string name, string zone, bool Status);
 
         event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;
@@ -17,7 +22,6 @@ namespace ownzone
 
     public class StateRepository : IStateRepository
     {
-
         private readonly ILogger<StateRepository> log;
 
         private Dictionary<string, string> currentZone;

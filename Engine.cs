@@ -18,20 +18,20 @@ namespace ownzone
     {
         private readonly ILogger<Engine> log;
 
-        private readonly IMqttService service;
+        private readonly IMqttService mqtt;
 
-        private readonly IZoneRepository zoneRepo;
+        private readonly IZoneRepository zones;
 
         private readonly IStateRepository states;
 
         private List<Subscription> subscriptions;
 
-        public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
+        public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
             IZoneRepository zoneRepository, IStateRepository stateRepository)
         {
             log = loggerFactory.CreateLogger<Engine>();
-            service = mqtt;
-            zoneRepo = zoneRepository;
+            mqtt = mqttService;
+            zones = zoneRepository;
             states = stateRepository;
             subscriptions = new List<Subscription>();
         }
@@ -40,8 +40,8 @@ namespace ownzone
 
         public void Run()
         {
-            service.Connect();
-            service.MessageReceived += messageReceived;
+            mqtt.MessageReceived += messageReceived;
+            mqtt.Connect();
             readSubs();
 
             // register event handler
@@ -118,12 +118,12 @@ namespace ownzone
         {
             log.LogDebug("Handle location update for {0}.", evt.Name);
 
-            var zones = zoneRepo.GetZones(evt.Name);
+            var zonelist = zones.GetZones(evt.Name);
 
             // check all zones against the updated location
             // and compose a list of zones where we are "in"
             var matches = new List<(double, IZone)>();
-            foreach (var zone in zones)
+            foreach (var zone in zonelist)
             {
                 var match = zone.Match(evt);
                 states.UpdateZoneStatus(evt.Name, zone.Name, match.contains);
@@ -162,7 +162,7 @@ namespace ownzone
         {
             var topic = String.Format("ownzone/{0}/current", evt.SubName);
             var message = evt.ZoneName;
-            service.Publish(topic, message);
+            mqtt.Publish(topic, message);
         }
 
         private void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
@@ -170,7 +170,7 @@ namespace ownzone
             var topic = String.Format("ownzone/{0}/status/{1}",
                 evt.SubName, evt.ZoneName);
             var message = evt.Status ? "in" : "out";
-            service.Publish(topic, message);
+            mqtt.Publish(topic, message);
         }
 
         // Subscriptions -------------------------------------------------------
@@ -181,7 +181,7 @@ namespace ownzone
             var subs = section.Get<Subscription[]>();
             foreach (var s in subs)
             {
-                service.Subscribe(s.Topic);
+                mqtt.Subscribe(s.Topic);
                 subscriptions.Add(s);
             }
         }
