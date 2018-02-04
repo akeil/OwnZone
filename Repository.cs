@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +32,12 @@ namespace ownzone
 
         // Get the list of zones associated to the given account name.
         IEnumerable<IZone> GetZones(string account);
+
+        Task<IEnumerable<string>> GetAccountNamesAsync();
+
+        Task<Account> GetAccountAsync(string name);
+
+        Task<IEnumerable<IZone>> GetZonesAsync(string name);
     }
 
     // Configuration settings for the Zone Repository.
@@ -83,15 +90,30 @@ namespace ownzone
             return accounts.Keys;
         }
 
+        public async Task<IEnumerable<string>> GetAccountNamesAsync()
+        {
+            return GetAccountNames();
+        }
+
         public Account GetAccount(string name)
         {
             return accounts[name];
+        }
+
+        public async Task<Account> GetAccountAsync(string name)
+        {
+            return GetAccount(name);
         }
 
         public IEnumerable<IZone> GetZones(string name)
         {
             var account = GetAccount(name);
             return account.Zones;
+        }
+
+        public async Task<IEnumerable<IZone>> GetZonesAsync(string name)
+        {
+            return GetZones(name);
         }
 
         private void readAccounts()

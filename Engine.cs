@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -53,14 +54,15 @@ namespace ownzone
 
         // Raw Messages --------------------------------------------------------
 
-        private void messageReceived(object sender, MessageReceivedEventArgs evt)
+        // event handler for raw mqtt messages
+        private async void messageReceived(object sender, MessageReceivedEventArgs evt)
         {
             log.LogDebug("Handle message for {0}.", evt.Topic);
             // TODO: throws
             var baseargs = convertOwnTracksMessage(evt.Message);
 
             // dispatch LocationUpdated events for each affected subscription
-            var names = lookupSubscriptionNames(evt.Topic);
+            var names = await lookupAccountsAsync(evt.Topic);
             foreach (var name in names)
             {
                 var args = baseargs.CopyForName(name);
@@ -96,13 +98,14 @@ namespace ownzone
         }
 
         // find the accounts that are interested in the given topic.
-        private List<string> lookupSubscriptionNames(string topic)
+        private async Task<List<string>> lookupAccountsAsync(string topic)
         {
             var result = new List<string>();
 
-            foreach (var name in repo.GetAccountNames())
+            var names = await repo.GetAccountNamesAsync();
+            foreach (var name in names)
             {
-                var account = repo.GetAccount(name);
+                var account = await repo.GetAccountAsync(name);
                 if (account.Topic == topic)
                 {
                     result.Add(account.Name);
@@ -114,11 +117,11 @@ namespace ownzone
 
         // Location Update Events ----------------------------------------------
 
-        private void locationUpdated(object sender, LocationUpdatedEventArgs evt)
+        private async void locationUpdated(object sender, LocationUpdatedEventArgs evt)
         {
             log.LogDebug("Handle location update for {0}.", evt.Name);
 
-            var zones = repo.GetZones(evt.Name);
+            var zones = await repo.GetZonesAsync(evt.Name);
 
             // check all zones against the updated location
             // and compose a list of zones where we are "in"
