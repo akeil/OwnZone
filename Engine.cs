@@ -156,7 +156,7 @@ namespace ownzone
         private void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
         {
             var topic = String.Format("ownzone/{0}/current", evt.SubName);
-            var message = evt.ZoneName;
+            var message = evt.ZoneName != null ? evt.ZoneName : "";
             mqtt.Publish(topic, message);
         }
 

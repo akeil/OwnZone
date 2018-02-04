@@ -14,6 +14,9 @@ namespace ownzone
     {   
         string Name { get; set; }
 
+        // Check internal state and raise InvalidZoneException if invalid.
+        void Validate();
+
         (bool contains, double distance) Match(ILocation loc);
     }
 
@@ -34,6 +37,22 @@ namespace ownzone
     class RepoSettings
     {
         public string BaseDirectory { get; set; }
+    }
+
+    class AccountReadException: Exception
+    {
+        public AccountReadException(string message)
+            : base(message)
+        {
+        }
+    }
+
+    class InvalidZoneException: Exception
+    {
+        public InvalidZoneException(string message)
+            : base(message)
+        {
+        }
     }
 
     public class Repository : IRepository
@@ -80,8 +99,17 @@ namespace ownzone
             var path = settings.BaseDirectory;
             foreach (var filename in Directory.EnumerateFiles(path, "*.json"))
             {
-                var account = readAccount(filename);
-                accounts[account.Name] = account;
+                try
+                {
+                    var account = readAccount(filename);
+                    accounts[account.Name] = account;
+                }
+                catch (AccountReadException ex)
+                {
+                    // skip invalid account definitions
+                    log.LogError(ex, "Failed to load account from {0}.",
+                        filename);
+                }
             }
         }
 
@@ -98,16 +126,34 @@ namespace ownzone
 
             var name = Path.GetFileNameWithoutExtension(path);
             var topic = root.Value<string>("Topic");
-            // TODO: make sure name and topic are set
+            if(String.IsNullOrEmpty(topic))
+            {
+                var msg = String.Format("Missing topic in account file {0}.",
+                    path);
+                throw new AccountReadException(msg);
+            }
             var account = new Account(){ Name=name, Topic=topic};
 
-            // TODO: make sure "Zones" is an object
-            var zones = (JObject)root["Zones"];
+            var zonesToken = root["Zones"];
+            if(zonesToken == null || zonesToken.Type != JTokenType.Object)
+            {
+                throw new AccountReadException("Invalid zone definition."
+                    + " \"Zones\" is not a dictionary.");
+            }
+
+            var zones = (JObject)zonesToken;
             foreach (JProperty prop in zones.Properties())
             {
-                var zone = readZone(prop);
-                account.Zones.Add(zone);
-                log.LogDebug("add zone {0} to {1}", zone.Name, account.Name);
+                try
+                {
+                    var zone = readZone(prop);
+                    account.Zones.Add(zone);
+                    log.LogDebug("Add zone {0} to {1}", zone.Name, account.Name);
+                }
+                catch (InvalidZoneException ex)
+                {
+                    log.LogError(ex, "Skip invalid zone for {0}", account.Name);
+                }
             }
 
             return account;
@@ -129,10 +175,12 @@ namespace ownzone
             }
             else
             {
-                throw new Exception("Unsupported Zone kind.");
+                var msg = String.Format("Unsupported Zone kind {0}.", kind);
+                throw new InvalidZoneException(msg);
             }
 
             zone.Name = prop.Name;
+            zone.Validate();
             return zone;
         }
     }
@@ -171,6 +219,21 @@ namespace ownzone
             var contains = distance < Radius;
             return (contains, distance);
         }
+
+        public void Validate()
+        {
+            if (Lat == 0 || Lon == 0)
+            {
+                throw new InvalidZoneException(String.Format(
+                    "Invalid Lat/Lon {0},{1}", Lat, Lon));
+            }
+
+            if (Radius == 0)
+            {
+                throw new InvalidZoneException(String.Format(
+                    "Invalid radius {0}", Radius));
+            }
+        }
     }
 
     // Rectangular zone defined by two lat/lon pairs.
@@ -197,6 +260,21 @@ namespace ownzone
             var distance = Geo.Distance(loc, center);
 
             return (inLat && inLon, distance);
+        }
+
+        public void Validate()
+        {
+            if (MinLat == 0 || MinLon == 0)
+            {
+                throw new InvalidZoneException(String.Format(
+                    "Invalid MinLat/MinLon {0},{1}", MinLat, MinLon));
+            }
+
+            if (MaxLat == 0 || MaxLon == 0)
+            {
+                throw new InvalidZoneException(String.Format(
+                    "Invalid MaxLat/MaxLon {0},{1}", MaxLat, MaxLon));
+            }
         }
     }
 }
