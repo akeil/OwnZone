@@ -21,6 +21,8 @@ namespace ownzone
 
         private readonly IStateRegistry states;
 
+        public string TopicPrefix { get; set; }
+
         public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
             IRepository repository, IStateRegistry stateRegistry)
         {
@@ -28,6 +30,9 @@ namespace ownzone
             mqtt = mqttService;
             repo = repository;
             states = stateRegistry;
+
+            var config = Program.Configuration.GetSection("Engine");
+            config.Bind(this);
         }
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
@@ -155,15 +160,16 @@ namespace ownzone
 
         private void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
         {
-            var topic = String.Format("ownzone/{0}/current", evt.SubName);
+            var topic = String.Format("{0}/{1}/current",
+                TopicPrefix, evt.SubName);
             var message = evt.ZoneName != null ? evt.ZoneName : "";
             mqtt.Publish(topic, message);
         }
 
         private void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
         {
-            var topic = String.Format("ownzone/{0}/status/{1}",
-                evt.SubName, evt.ZoneName);
+            var topic = String.Format("{0}/{1}/status/{2}",
+                TopicPrefix, evt.SubName, evt.ZoneName);
             var message = evt.Status ? "in" : "out";
             mqtt.Publish(topic, message);
         }
