@@ -21,8 +21,6 @@ namespace ownzone
 
         private readonly IStateRegistry states;
 
-        private List<Subscription> subscriptions;
-
         public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
             IRepository repository, IStateRegistry stateRegistry)
         {
@@ -30,21 +28,20 @@ namespace ownzone
             mqtt = mqttService;
             repo = repository;
             states = stateRegistry;
-            subscriptions = new List<Subscription>();
         }
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
 
         public void Run()
         {
-            mqtt.MessageReceived += messageReceived;
-            mqtt.Connect();
-            readSubs();
-
-            // register event handler
+            // register event handlers
             this.LocationUpdated += locationUpdated;
             states.ZoneStatusChanged += zoneStatusChanged;
             states.CurrentZoneChanged += currentZoneChanged;
+            mqtt.MessageReceived += messageReceived;
+
+            mqtt.Connect();
+            subscribeForAccounts();
 
             log.LogInformation("Engine started.");
         }
@@ -93,16 +90,17 @@ namespace ownzone
             }
         }
 
-        // find the subscriptions that are interested in the given topic.
+        // find the accounts that are interested in the given topic.
         private List<string> lookupSubscriptionNames(string topic)
         {
             var result = new List<string>();
 
-            foreach (var sub in subscriptions)
+            foreach (var name in repo.GetAccountNames())
             {
-                if (sub.Topic == topic)
+                var account = repo.GetAccount(name);
+                if (account.Topic == topic)
                 {
-                    result.Add(sub.Name);
+                    result.Add(account.Name);
                 }
             }
 
@@ -172,14 +170,13 @@ namespace ownzone
 
         // Subscriptions -------------------------------------------------------
 
-        private void readSubs()
+        private void subscribeForAccounts()
         {
-            var section = Program.Configuration.GetSection("Subscriptions");
-            var subs = section.Get<Subscription[]>();
-            foreach (var s in subs)
+            foreach (var name in repo.GetAccountNames())
             {
-                mqtt.Subscribe(s.Topic);
-                subscriptions.Add(s);
+                log.LogInformation("Subscribe for account {0}", name);
+                var account = repo.GetAccount(name);
+                mqtt.Subscribe(account.Topic);
             }
         }
     }
@@ -237,12 +234,5 @@ namespace ownzone
         public LocationUpdatedEventArgs ToLocationUpdate(){
             return new LocationUpdatedEventArgs() {Lat=lat, Lon = lon};
         }
-    }
-
-    public class Subscription
-    {
-        public string Name { get; set; }
-
-        public string Topic { get; set; }
     }
 }

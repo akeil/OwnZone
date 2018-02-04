@@ -14,16 +14,20 @@ namespace ownzone
     {   
         string Name { get; set; }
 
-        bool Active { get; set; }
-
         (bool contains, double distance) Match(ILocation loc);
     }
 
     // Holds zone definitions
     public interface IRepository
     {
-        // Get the list of zones associated to the given subscription name.
-        List<IZone> GetZones(string name);
+        // List all account names.
+        IEnumerable<string> GetAccountNames();
+
+        // Get an Account by name.
+        Account GetAccount(string name);
+
+        // Get the list of zones associated to the given account name.
+        IEnumerable<IZone> GetZones(string account);
     }
 
     // Configuration settings for the Zone Repository.
@@ -38,83 +42,114 @@ namespace ownzone
 
         private readonly RepoSettings settings;
 
+        private readonly Dictionary<string, Account> accounts;
+
         public Repository(ILoggerFactory loggerFactory)
         {
             log = loggerFactory.CreateLogger<Repository>();
             settings = new RepoSettings();
 
-            var config = Program.Configuration.GetSection("ZoneRepository");
+            var config = Program.Configuration.GetSection("Repository");
             config.Bind(settings);
 
-            log.LogInformation("Init ZoneRepository, basedir is {0}.",
+            log.LogInformation("Init Repository, basedir is {0}.",
                 settings.BaseDirectory);
+
+            accounts = new Dictionary<string, Account>();
+            readAccounts();
         }
 
-        public List<IZone> GetZones(string name)
+        public IEnumerable<string> GetAccountNames()
         {
-            var path = zoneFilePath(name);
-            log.LogDebug("Read zones for {0} from {1}.", name, path);
-            return readZoneFile(path);
+            return accounts.Keys;
         }
 
-        private string zoneFilePath(string name)
+        public Account GetAccount(string name)
         {
-            return Path.Combine(settings.BaseDirectory, name + ".zones.json");
+            return accounts[name];
         }
 
-        // Read the list of Zones from the JSON file at ZonePath.
-        private static List<IZone> readZoneFile(string path)
+        public IEnumerable<IZone> GetZones(string name)
         {
-            var result = new List<IZone>();
+            var account = GetAccount(name);
+            return account.Zones;
+        }
 
-            // Expect a JSON array like this:
-            // [
-            //   {
-            //     "Kind": "Point",
-            //     <other properties>
-            //   },
-            //   {...}
-            // ]
-            // 
-            // Depending on the Kind, a different concrete class needs
-            // to be instantiated:
-            // - Point
-            // - Box
+        private void readAccounts()
+        {
+            var path = settings.BaseDirectory;
+            foreach (var filename in Directory.EnumerateFiles(path, "*.json"))
+            {
+                var account = readAccount(filename);
+                accounts[account.Name] = account;
+            }
+        }
+
+        private Account readAccount(string path)
+        {
+            log.LogInformation("Read account from {0}.", path);
+
+            JObject root = null;
             using (StreamReader f = new StreamReader(path, Encoding.UTF8))
             using(JsonTextReader reader = new JsonTextReader(f))
             {
-                var arr = JToken.ReadFrom(reader);
-                if (arr.Type != JTokenType.Array)
-                {
-                    throw new Exception("Unexpected Type, not an array.");
-                }
-
-                foreach (var child in arr.Children())
-                {
-                    if (child.Type != JTokenType.Object)
-                    {
-                        throw new Exception("Unexpected type, not an object.");
-                    }
-
-                    JObject obj = (JObject) child;
-                    var kind = obj.Value<string>("Kind");
-                    if (kind == "Point")
-                    {
-                        result.Add(obj.ToObject<Point>());
-                    }
-                    else if (kind == "Bounds")
-                    {
-                        result.Add(obj.ToObject<Bounds>());
-                    }
-                    else
-                    {
-                        throw new Exception("Unsupported Zone kind.");
-                    }
-                }
+                root = JObject.Load(reader);
             }
 
-            return result;
+            var name = Path.GetFileNameWithoutExtension(path);
+            var topic = root.Value<string>("Topic");
+            // TODO: make sure name and topic are set
+            var account = new Account(){ Name=name, Topic=topic};
+
+            // TODO: make sure "Zones" is an object
+            var zones = (JObject)root["Zones"];
+            foreach (JProperty prop in zones.Properties())
+            {
+                var zone = readZone(prop);
+                account.Zones.Add(zone);
+                log.LogDebug("add zone {0} to {1}", zone.Name, account.Name);
+            }
+
+            return account;
         }
+
+        private IZone readZone(JProperty prop)
+        {
+            var data = prop.Value;
+            var kind = data.Value<string>("Kind");
+
+            IZone zone = null;
+            if (kind == "Point")
+            {
+                zone = data.ToObject<Point>();
+            }
+            else if (kind == "Bounds")
+            {
+                zone = data.ToObject<Bounds>();
+            }
+            else
+            {
+                throw new Exception("Unsupported Zone kind.");
+            }
+
+            zone.Name = prop.Name;
+            return zone;
+        }
+    }
+
+    public class Account
+    {
+        public List<IZone> Zones;
+
+        public string Name { get; set; }
+
+        public string Topic { get; set; }
+
+        public Account()
+        {
+            Zones = new List<IZone>();
+        }
+
     }
 
     // Zone Types --------------------------------------------------------------
@@ -129,8 +164,6 @@ namespace ownzone
         public int Radius { get; set; }
 
         public string Name { get; set; }
-
-        public bool Active { get; set; }
 
         public (bool contains, double distance) Match(ILocation loc)
         {
@@ -152,8 +185,6 @@ namespace ownzone
         public double MaxLon { get; set; }
 
         public string Name { get; set; }
-
-        public bool Active { get; set; }
 
         public (bool contains, double distance) Match(ILocation loc)
         {
