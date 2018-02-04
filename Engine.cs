@@ -129,7 +129,8 @@ namespace ownzone
             foreach (var zone in zones)
             {
                 var match = zone.Match(evt);
-                states.UpdateZoneStatus(evt.Name, zone.Name, match.contains);
+                await states.UpdateZoneStatusAsync(evt.Name, zone.Name,
+                    match.contains);
                 if (match.contains)
                 {
                     matches.Add((match.distance, zone));
@@ -143,7 +144,7 @@ namespace ownzone
                 matches.Sort(byRelevance);
                 currentZoneName = matches[0].Item2.Name;
             }
-            states.UpdateCurrentZone(evt.Name, currentZoneName);
+            await states.UpdateCurrentZoneAsync(evt.Name, currentZoneName);
         }
 
         // delegate to sort a list of matches by relevance.
@@ -161,7 +162,7 @@ namespace ownzone
 
         // Zone change events --------------------------------------------------
 
-        private void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
+        private async void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/current",
                 TopicPrefix, evt.SubName);
@@ -169,7 +170,7 @@ namespace ownzone
             mqtt.Publish(topic, message);
         }
 
-        private void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
+        private async void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/status/{2}",
                 TopicPrefix, evt.SubName, evt.ZoneName);

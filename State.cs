@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace ownzone
@@ -11,9 +12,13 @@ namespace ownzone
         // This may trigger a CurrentZoneChanged event.
         void UpdateCurrentZone(string name, string zone);
 
+        Task UpdateCurrentZoneAsync(string name, string zone);
+
         // Update the status for a zone.
         // This may trigger a ZoneStatusChanged event.
         void UpdateZoneStatus(string name, string zone, bool Status);
+
+        Task UpdateZoneStatusAsync(string name, string zone, bool Status);
 
         event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;
 
@@ -66,6 +71,11 @@ namespace ownzone
             }
         }
 
+        public async Task UpdateZoneStatusAsync(string subName, string zoneName, bool status)
+        {
+            UpdateZoneStatus(subName, zoneName, status);
+        }
+
         protected virtual void OnZoneStatusChanged(ZoneStatusChangedEventArgs args)
         {
             log.LogDebug("Dispatch status change for {0}.{1}.",
@@ -104,6 +114,11 @@ namespace ownzone
                 };
                 OnCurrentZoneChanged(args);
             }
+        }
+
+        public async Task UpdateCurrentZoneAsync(string subName, string zoneName)
+        {
+            UpdateCurrentZone(subName, zoneName);
         }
 
         protected virtual void OnCurrentZoneChanged(CurrentZoneChangedEventArgs args)
