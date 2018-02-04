@@ -54,6 +54,8 @@ namespace ownzone
 
             // listen to our own events
             LocationUpdated += locationUpdated;
+            ZoneStatusChanged += zoneStatusChanged;
+            CurrentZoneChanged += currentZoneChanged;
         }
 
         // Raw Messages --------------------------------------------------------
@@ -116,7 +118,7 @@ namespace ownzone
             return result;
         }
 
-        // location Update Events ----------------------------------------------
+        // Location Update Events ----------------------------------------------
 
         private void locationUpdated(object sender, LocationUpdatedEventArgs evt)
         {
@@ -235,6 +237,23 @@ namespace ownzone
             if (handler != null) {
                 handler(this, args);
             }
+        }
+
+        // Zone change events --------------------------------------------------
+
+        private void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
+        {
+            var topic = String.Format("ownzone/{0}/current", evt.SubName);
+            var message = evt.ZoneName;
+            service.Publish(topic, message);
+        }
+
+        private void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
+        {
+            var topic = String.Format("ownzone/{0}/status/{1}",
+                evt.SubName, evt.ZoneName);
+            var message = evt.Status ? "in" : "out";
+            service.Publish(topic, message);
         }
 
         // Subscriptions -------------------------------------------------------
