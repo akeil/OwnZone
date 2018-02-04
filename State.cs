@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace ownzone
@@ -31,13 +36,24 @@ namespace ownzone
 
         private Dictionary<string, string> currentZone;
 
+        private bool currentZoneLoaded;
+
         private Dictionary<string, bool> zoneStatus;
+
+        private bool zoneStatusLoaded;
+
+        public string BaseDirectory { get; set; }
 
         public StateRegistry(ILoggerFactory loggerFactory)
         {
             log = loggerFactory.CreateLogger<StateRegistry>();
             currentZone = new Dictionary<string, string>();
             zoneStatus = new Dictionary<string, bool>();
+            zoneStatusLoaded = false;
+            currentZoneLoaded = false;
+
+            var config = Program.Configuration.GetSection("StateRegistry");
+            config.Bind(this);
         }
 
         public event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;
@@ -51,6 +67,8 @@ namespace ownzone
 
         public async Task UpdateZoneStatusAsync(string subName, string zoneName, bool status)
         {
+            await lazyLoadStatusAsync();
+
             var key = subName + "." + zoneName;
             var changed = false;
             try
@@ -93,6 +111,8 @@ namespace ownzone
 
         public async Task UpdateCurrentZoneAsync(string subName, string zoneName)
         {
+            await lazyLoadZonesAsync();
+
             if (String.IsNullOrEmpty(zoneName))
             {
                 zoneName = null;
@@ -128,6 +148,65 @@ namespace ownzone
             if (handler != null) {
                 handler(this, args);
             }
+        }
+
+        private async Task lazyLoadZonesAsync()
+        {
+            if (!currentZoneLoaded)
+            {
+                await loadZonesAsync();
+                currentZoneLoaded = true;
+            }
+        }
+
+        private async Task lazyLoadStatusAsync()
+        {
+            if (!zoneStatusLoaded)
+            {
+                await loadStatusAsync();
+                zoneStatusLoaded = true;
+            }
+        }
+
+        private async Task loadZonesAsync()
+        {
+            var path = Path.Combine(BaseDirectory, "state.zones.json");
+            var obj = await loadAsync(path);
+            if (obj != null)
+            {
+                currentZone = obj.ToObject<Dictionary<string, string>>();
+            }
+        }
+
+        private async Task loadStatusAsync()
+        {
+            var path = Path.Combine(BaseDirectory, "state.status.json");
+            var obj = await loadAsync(path);
+            if (obj != null)
+            {
+                zoneStatus = obj.ToObject<Dictionary<string, bool>>();
+            }
+        }
+
+        private async Task<JObject> loadAsync(string path)
+        {
+            log.LogInformation("Load state from {0}.", path);
+
+            JObject root = null;
+            try
+            {
+                using (StreamReader f = new StreamReader(path, Encoding.UTF8))
+                using(JsonTextReader reader = new JsonTextReader(f))
+                {
+                    root = await JObject.LoadAsync(reader);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                log.LogWarning("Could not open state file {0}", path);
+            }
+
+            return root;
         }
     }
 
