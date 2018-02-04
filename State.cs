@@ -91,6 +91,8 @@ namespace ownzone
                     Status=status
                 };
                 OnZoneStatusChanged(args);
+
+                await storeStatusAsync();
             }
         }
 
@@ -138,6 +140,8 @@ namespace ownzone
                     ZoneName = zoneName
                 };
                 OnCurrentZoneChanged(args);
+
+                await storeZonesAsync();
             }
         }
 
@@ -201,12 +205,45 @@ namespace ownzone
                     root = await JObject.LoadAsync(reader);
                 }
             }
-            catch (FileNotFoundException)
+            catch (IOException)
             {
                 log.LogWarning("Could not open state file {0}", path);
             }
 
             return root;
+        }
+
+        private async Task storeZonesAsync()
+        {
+            var path = Path.Combine(BaseDirectory, "state.zones.json");
+            await storeAsync(currentZone, path);
+        }
+
+        private async Task storeStatusAsync()
+        {
+            var path = Path.Combine(BaseDirectory, "state.status.json");
+            await storeAsync(zoneStatus, path);
+        }
+
+        private async Task storeAsync(object obj, string path)
+        {
+            log.LogDebug("Write state to {0}.", path);
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+
+                var jsonStr = JsonConvert.SerializeObject(obj);
+                var append = false;
+                using(StreamWriter writer = new StreamWriter(path, append, Encoding.UTF8))
+                {
+                    await writer.WriteAsync(jsonStr);
+                }
+            }
+            catch (IOException ex)
+            {
+                log.LogError(ex, "Failed to save state to {0}", path);
+            }
         }
     }
 
