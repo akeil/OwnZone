@@ -76,7 +76,9 @@ namespace ownzone
         public async Task ConnectAsync()
         {
             var machine = Environment.MachineName;
-            var clientId = String.Format("{0}-{1}", CLIENT_ID_PREFIX, machine);
+            var user = Environment.UserName;
+            var clientId = String.Format("{0}-{1}-{2}",
+                CLIENT_ID_PREFIX, machine, user);
             await Task.Run( () =>
                 client.Connect(clientId, config.Username, config.Password)
             );
