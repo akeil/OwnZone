@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
 using Newtonsoft.Json;
@@ -17,11 +18,17 @@ namespace ownzone
         // Connect to the MQTT broker.
         void Connect();
 
+        Task ConnectAsync();
+
         // Subscribe to the given MQTT topic
         void Subscribe(string topic);
 
+        Task SubscribeAsync(string topic);
+
         // Publish a string message to the given MQTT topic.
         void Publish(string topic, string payload);
+
+        Task PublishAsync(string topic, string payload);
     }
 
     class MqttSettings
@@ -44,15 +51,19 @@ namespace ownzone
             var settings = new MqttSettings();
             Program.Configuration.GetSection("MQTT").Bind(settings);
             client = new MqttClient(settings.Host);
+            client.MqttMsgPublishReceived += messageReceived;
         }
 
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
         public void Connect()
         {
-            client.MqttMsgPublishReceived += messageReceived;
-            client.Connect(CLIENT_ID);
+            ConnectAsync().Wait();
+        }
 
+        public async Task ConnectAsync()
+        {
+            await Task.Run( () => client.Connect(CLIENT_ID));
             log.LogInformation("Connected to MQTT broker.");
         }
 
@@ -78,17 +89,29 @@ namespace ownzone
 
         public void Subscribe(string topic)
         {
+            SubscribeAsync(topic).Wait();
+        }
+
+        public async Task SubscribeAsync(string topic)
+        {
             var topics = new string[] { topic };
             var qosLevels = new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE };
-            client.Subscribe(topics, qosLevels);
+
+            await Task.Run(() => client.Subscribe(topics, qosLevels));
 
             log.LogInformation("Subscribed to topic {0}.", topic);
         }
 
         public void Publish(string topic, string payload)
         {
-            byte[] message = Encoding.UTF8.GetBytes(payload);
-            client.Publish(topic, message);
+            PublishAsync(topic, payload).Wait();
+        }
+
+        public async Task PublishAsync(string topic, string payload)
+        {
+            var message = Encoding.UTF8.GetBytes(payload);
+
+            await Task.Run( () => client.Publish(topic, message));
 
             log.LogDebug("Published to topic {0}.", topic);
         }

@@ -46,7 +46,9 @@ namespace ownzone
             states.CurrentZoneChanged += currentZoneChanged;
             mqtt.MessageReceived += messageReceived;
 
-            mqtt.Connect();
+            var connected = mqtt.ConnectAsync();
+            // subscriptions require completed connection
+            connected.Wait();
             subscribeForAccounts();
 
             log.LogInformation("Engine started.");
@@ -180,13 +182,13 @@ namespace ownzone
 
         // Subscriptions -------------------------------------------------------
 
-        private void subscribeForAccounts()
+        private async Task subscribeForAccounts()
         {
             foreach (var name in repo.GetAccountNames())
             {
                 log.LogInformation("Subscribe for account {0}", name);
                 var account = repo.GetAccount(name);
-                mqtt.Subscribe(account.Topic);
+                await mqtt.SubscribeAsync(account.Topic);
             }
         }
     }
