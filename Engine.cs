@@ -24,6 +24,10 @@ namespace ownzone
 
         private List<Subscription> subscriptions;
 
+        private Dictionary<string, string> currentZone;
+
+        private Dictionary<string, bool> zoneStatus;
+
         public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
             IZoneRepository zoneRepository)
         {
@@ -31,6 +35,8 @@ namespace ownzone
             service = mqtt;
             zoneRepo = zoneRepository;
             subscriptions = new List<Subscription>();
+            currentZone = new Dictionary<string, string>();
+            zoneStatus = new Dictionary<string, bool>();
         }
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
@@ -120,23 +126,21 @@ namespace ownzone
             foreach (var zone in zones)
             {
                 var match = zone.Match(evt);
+                updateZoneStatus(evt.Name, zone.Name, match.contains);
                 if (match.contains)
                 {
-                    // if previously "out", event zone entered
-                }
-                else
-                {
-                    // if previously "in", event zone left
+                    matches.Add((match.distance, zone));
                 }
             }
 
             // find the best match
+            var currentZoneName = "";
             if (matches.Count != 0)
             {
                 matches.Sort(byRelevance);
-                var bestMatch = matches[0];
-                // if the best match changed, event zone changed
+                currentZoneName = matches[0].Item2.Name;
             }
+            updateCurrentZone(evt.Name, currentZoneName);
         }
 
         // delegate to sort a list of matches by relevance.
@@ -149,6 +153,32 @@ namespace ownzone
                 return -1;
             } else {
                 return 0;
+            }
+        }
+
+        private void updateZoneStatus(string subName, string zoneName, bool status)
+        {
+            var key = subName + "." + zoneName;
+            var previous = zoneStatus[key];
+            if (previous == null || status != previous)
+            {
+                zoneStatus[key] = status;
+                //OnZoneStatusChanged();
+            }
+        }
+
+        private void updateCurrentZone(string subName, string zoneName)
+        {
+            if (String.IsNullOrEmpty(zoneName))
+            {
+                zoneName = null;
+            }
+
+            var previous = currentZone[subName];
+            if (zoneName != previous)
+            {
+                currentZone[subName] = zoneName;
+                //OnCurrentZoneChanged();
             }
         }
 
