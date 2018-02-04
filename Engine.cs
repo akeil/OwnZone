@@ -20,7 +20,8 @@ namespace ownzone
 
         private readonly IMqttService service;
 
-        public Engine(ILoggerFactory loggerFactory, IMqttService mqtt)
+        public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
+            IZoneRepository zoneRepo)
         {
             log = loggerFactory.CreateLogger<Engine>();
             service = mqtt;
@@ -210,62 +211,4 @@ namespace ownzone
         }
     }
 
-    // Common interface for all zones.
-    public interface IZone
-    {   
-        string Name { get; set; }
-
-        bool Active { get; set; }
-
-        (bool contains, double distance) Match(ILocation loc);
-    }
-
-    // Zone defined by a single coordinate pair and a radius.
-    class Point : IZone, ILocation
-    {
-        public double Lat { get; set; }
-
-        public double Lon { get; set; }
-
-        public int Radius { get; set; }
-
-        public string Name { get; set; }
-
-        public bool Active { get; set; }
-
-        public (bool contains, double distance) Match(ILocation loc)
-        {
-            var distance = Geo.Distance(loc, this);
-            var contains = distance < Radius;
-            return (contains, distance);
-        }
-    }
-
-    class Bounds : IZone
-    {
-        public double MinLat { get; set; }
-
-        public double MinLon { get; set; }
-
-        public double MaxLat { get; set; }
-
-        public double MaxLon { get; set; }
-
-        public string Name { get; set; }
-
-        public bool Active { get; set; }
-
-        public (bool contains, double distance) Match(ILocation loc)
-        {
-            var inLat = loc.Lat <= MaxLat && loc.Lat >= MinLat;
-            var inLon = loc.Lon <= MaxLon && loc.Lon >= MinLon;
-
-            var center = new Point();
-            center.Lat = MinLat + (MaxLat - MinLat) / 2;
-            center.Lon = MinLon + (MaxLon - MinLon) / 2;
-            var distance = Geo.Distance(loc, center);
-
-            return (inLat && inLon, distance);
-        }
-    }
 }
