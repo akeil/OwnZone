@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace ownzone
 {
     // Holds status values for zones.
-    public interface IStateRepository
+    public interface IStateRegistry
     {
         // Update the current zone for a subscription.
         // This may trigger a CurrentZoneChanged event.
@@ -20,17 +20,17 @@ namespace ownzone
         event EventHandler<ZoneStatusChangedEventArgs> ZoneStatusChanged;
     }
 
-    public class StateRepository : IStateRepository
+    public class StateRegistry : IStateRegistry
     {
-        private readonly ILogger<StateRepository> log;
+        private readonly ILogger<StateRegistry> log;
 
         private Dictionary<string, string> currentZone;
 
         private Dictionary<string, bool> zoneStatus;
 
-        public StateRepository(ILoggerFactory loggerFactory)
+        public StateRegistry(ILoggerFactory loggerFactory)
         {
-            log = loggerFactory.CreateLogger<StateRepository>();
+            log = loggerFactory.CreateLogger<StateRegistry>();
             currentZone = new Dictionary<string, string>();
             zoneStatus = new Dictionary<string, bool>();
         }

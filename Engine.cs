@@ -19,17 +19,17 @@ namespace ownzone
 
         private readonly IZoneRepository zones;
 
-        private readonly IStateRepository states;
+        private readonly IStateRegistry states;
 
         private List<Subscription> subscriptions;
 
         public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
-            IZoneRepository zoneRepository, IStateRepository stateRepository)
+            IZoneRepository zoneRepository, IStateRegistry stateRegistry)
         {
             log = loggerFactory.CreateLogger<Engine>();
             mqtt = mqttService;
             zones = zoneRepository;
-            states = stateRepository;
+            states = stateRegistry;
             subscriptions = new List<Subscription>();
         }
 
