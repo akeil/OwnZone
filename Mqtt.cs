@@ -75,7 +75,7 @@ namespace ownzone
 
         protected virtual void OnMessageReceived(MessageReceivedEventArgs args)
         {
-            log.LogDebug("Got message for topic {0}", args.Topic);
+            log.LogDebug("Dispatch message for topic {0}", args.Topic);
             var handler = MessageReceived;
             if (handler != null) {
                 handler(this, args);

@@ -22,13 +22,18 @@ namespace ownzone
 
         private readonly IZoneRepository zoneRepo;
 
+        private List<Subscription> subscriptions;
+
         public Engine(ILoggerFactory loggerFactory, IMqttService mqtt,
             IZoneRepository zoneRepository)
         {
             log = loggerFactory.CreateLogger<Engine>();
             service = mqtt;
             zoneRepo = zoneRepository;
+            subscriptions = new List<Subscription>();
         }
+
+        public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
 
         public void Run()
         {
@@ -36,6 +41,9 @@ namespace ownzone
             service.Connect();
             service.MessageReceived += messageReceived;
             readSubs();
+
+            // listen to our own events
+            LocationUpdated += locationUpdated;
         }
 
         // Raw Messages --------------------------------------------------------
@@ -44,12 +52,27 @@ namespace ownzone
         {
             log.LogDebug("Got message for {0}", evt.Topic);
             // TODO: throws
-            var updateEvent = convertOwnTracksMessage(evt.Message);
+            var baseargs = convertOwnTracksMessage(evt.Message);
 
-
+            // dispatch LocationUpdated events for each affected subscription
+            var names = lookupSubscriptionNames(evt.Topic);
+            foreach (var name in names)
+            {
+                var args = baseargs.CopyForName(name);
+                OnLocationUpdated(args);
+            }
         }
 
-        private LocationUpdate convertOwnTracksMessage(string jsonString)
+        protected virtual void OnLocationUpdated(LocationUpdatedEventArgs args)
+        {
+            log.LogDebug("Dispatch location update for {0}", args.Name);
+            var handler = LocationUpdated;
+            if (handler != null) {
+                handler(this, args);
+            }
+        }
+
+        private LocationUpdatedEventArgs convertOwnTracksMessage(string jsonString)
         {
             try
             {
@@ -67,6 +90,30 @@ namespace ownzone
             }
         }
 
+        // find the subscriptions that are interested in the given topic.
+        private List<string> lookupSubscriptionNames(string topic)
+        {
+            var result = new List<string>();
+
+            foreach (var sub in subscriptions)
+            {
+                if (sub.Topic == topic)
+                {
+                    result.Add(sub.Name);
+                }
+            }
+
+            return result;
+        }
+
+        // location Update Events ----------------------------------------------
+
+        private void locationUpdated(object sender, LocationUpdatedEventArgs evt)
+        {
+            log.LogDebug("Got location update for {0}", evt.Name);
+
+        }
+
 
         // Subscriptions -------------------------------------------------------
 
@@ -78,23 +125,26 @@ namespace ownzone
             {
                 s.Setup(log, service, zoneRepo);
                 service.AddSubscription(s);
+                subscriptions.Add(s);
             }
         }
     }
 
     // Message for a location update.
-    public class LocationUpdate : ILocation
+    public class LocationUpdatedEventArgs : EventArgs, ILocation
     {
-        
-        public LocationUpdate(double lat, double lon)
-        {
-            Lat = lat;
-            Lon = lon;
-        }
-
         public double Lat { get; set; }
 
         public double Lon { get; set; }
+
+        public string Name { get; set; }
+
+        public LocationUpdatedEventArgs CopyForName(string name)
+        {
+            var copy = (LocationUpdatedEventArgs)MemberwiseClone();
+            copy.Name = name;
+            return copy;
+        }
     }
 
     // Deserialization helper for OwnTrack messages.
@@ -130,8 +180,8 @@ namespace ownzone
         }
 
         // convert to OwnZone message
-        public LocationUpdate ToLocationUpdate(){
-            return new LocationUpdate(lat, lon);
+        public LocationUpdatedEventArgs ToLocationUpdate(){
+            return new LocationUpdatedEventArgs() {Lat=lat, Lon = lon};
         }
     }
 
@@ -172,7 +222,7 @@ namespace ownzone
         }
 
         // Handle a location update
-        public void HandleLocationUpdate(LocationUpdate update)
+        public void HandleLocationUpdate(LocationUpdatedEventArgs update)
         {
             log.LogInformation("Location update for {0}", Name);
 
