@@ -41,6 +41,10 @@ namespace ownzone
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
 
+        public event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;
+
+        public event EventHandler<ZoneStatusChangedEventArgs> ZoneStatusChanged;
+
         public void Run()
         {
             log.LogDebug("Engine start");
@@ -159,11 +163,37 @@ namespace ownzone
         private void updateZoneStatus(string subName, string zoneName, bool status)
         {
             var key = subName + "." + zoneName;
-            var previous = zoneStatus[key];
-            if (previous == null || status != previous)
+            var changed = false;
+            try
             {
-                zoneStatus[key] = status;
-                //OnZoneStatusChanged();
+                changed = status != zoneStatus[key];
+            }
+            catch (KeyNotFoundException)
+            {
+                changed = true;
+            }
+
+            zoneStatus[key] = status;
+
+            if (changed)
+            {
+                var args = new ZoneStatusChangedEventArgs()
+                {
+                    SubName=subName,
+                    ZoneName=zoneName,
+                    Status=status
+                };
+                OnZoneStatusChanged(args);
+            }
+        }
+
+        protected virtual void OnZoneStatusChanged(ZoneStatusChangedEventArgs args)
+        {
+            log.LogDebug("Dispatch status change for {0}.{1} to {2}",
+                args.SubName, args.ZoneName, args.Status);
+            var handler = ZoneStatusChanged;
+            if (handler != null) {
+                handler(this, args);
             }
         }
 
@@ -174,11 +204,36 @@ namespace ownzone
                 zoneName = null;
             }
 
-            var previous = currentZone[subName];
-            if (zoneName != previous)
+            var changed = false;
+            try
             {
-                currentZone[subName] = zoneName;
-                //OnCurrentZoneChanged();
+                changed = zoneName != currentZone[subName];
+            }
+            catch (KeyNotFoundException)
+            {
+                changed = true;
+            }
+
+            currentZone[subName] = zoneName;
+
+            if (changed)
+            {
+                var args = new CurrentZoneChangedEventArgs()
+                {
+                    SubName = subName,
+                    ZoneName = zoneName
+                };
+                OnCurrentZoneChanged(args);
+            }
+        }
+
+        protected virtual void OnCurrentZoneChanged(CurrentZoneChangedEventArgs args)
+        {
+            log.LogDebug("Dispatch zone change for {0} to {1}",
+                args.SubName, args.ZoneName);
+            var handler = CurrentZoneChanged;
+            if (handler != null) {
+                handler(this, args);
             }
         }
 
@@ -212,6 +267,22 @@ namespace ownzone
             copy.Name = name;
             return copy;
         }
+    }
+
+    public class ZoneStatusChangedEventArgs : EventArgs
+    {
+        public string SubName { get; set; }
+
+        public string ZoneName { get; set; }
+
+        public bool Status { get; set; }
+    }
+
+    public class CurrentZoneChangedEventArgs : EventArgs
+    {
+        public string SubName { get; set; }
+
+        public string ZoneName { get; set; }
     }
 
     // Deserialization helper for OwnTrack messages.
