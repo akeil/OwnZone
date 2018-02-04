@@ -52,11 +52,15 @@ namespace ownzone
         {
             client.MqttMsgPublishReceived += messageReceived;
             client.Connect(CLIENT_ID);
+
+            log.LogInformation("Connected to MQTT broker.");
         }
 
         // handle incoming MQTT message
         private void messageReceived(object sender, MqttMsgPublishEventArgs evt)
         {
+            log.LogDebug("Received message for topic {0}.", evt.Topic);
+
             var args = new MessageReceivedEventArgs();
             args.Topic = evt.Topic;
             args.Message = Encoding.UTF8.GetString(evt.Message);
@@ -65,7 +69,7 @@ namespace ownzone
 
         protected virtual void OnMessageReceived(MessageReceivedEventArgs args)
         {
-            log.LogDebug("Dispatch message for topic {0}", args.Topic);
+            log.LogDebug("Dispatch event for topic {0}.", args.Topic);
             var handler = MessageReceived;
             if (handler != null) {
                 handler(this, args);
@@ -77,12 +81,16 @@ namespace ownzone
             var topics = new string[] { topic };
             var qosLevels = new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE };
             client.Subscribe(topics, qosLevels);
+
+            log.LogInformation("Subscribed to topic {0}.", topic);
         }
 
         public void Publish(string topic, string payload)
         {
             byte[] message = Encoding.UTF8.GetBytes(payload);
             client.Publish(topic, message);
+
+            log.LogDebug("Published to topic {0}.", topic);
         }
     }
 

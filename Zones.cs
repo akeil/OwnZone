@@ -26,7 +26,7 @@ namespace ownzone
         List<IZone> GetZones(string name);
     }
 
-    // Configuration settings for the Zeione Repository
+    // Configuration settings for the Zone Repository
     class ZoneRepoSettings
     {
         public string BaseDirectory { get; set; }
@@ -46,14 +46,14 @@ namespace ownzone
             var config = Program.Configuration.GetSection("ZoneRepository");
             config.Bind(settings);
 
-            log.LogDebug("Init ZoneRepository, basedir is {0}",
+            log.LogInformation("Init ZoneRepository, basedir is {0}.",
                 settings.BaseDirectory);
         }
 
         public List<IZone> GetZones(string name)
         {
             var path = zoneFilePath(name);
-            log.LogDebug("Read zones from {0}", path);
+            log.LogDebug("Read zones for {0} from {1}.", name, path);
             return readZoneFile(path);
         }
 

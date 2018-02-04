@@ -47,7 +47,6 @@ namespace ownzone
 
         public void Run()
         {
-            log.LogDebug("Engine start");
             service.Connect();
             service.MessageReceived += messageReceived;
             readSubs();
@@ -56,13 +55,15 @@ namespace ownzone
             LocationUpdated += locationUpdated;
             ZoneStatusChanged += zoneStatusChanged;
             CurrentZoneChanged += currentZoneChanged;
+
+            log.LogInformation("Engine started.");
         }
 
         // Raw Messages --------------------------------------------------------
 
         private void messageReceived(object sender, MessageReceivedEventArgs evt)
         {
-            log.LogDebug("Got message for {0}", evt.Topic);
+            log.LogDebug("Handle message for {0}.", evt.Topic);
             // TODO: throws
             var baseargs = convertOwnTracksMessage(evt.Message);
 
@@ -77,7 +78,7 @@ namespace ownzone
 
         protected virtual void OnLocationUpdated(LocationUpdatedEventArgs args)
         {
-            log.LogDebug("Dispatch location update for {0}", args.Name);
+            log.LogDebug("Dispatch location update for {0}.", args.Name);
             var handler = LocationUpdated;
             if (handler != null) {
                 handler(this, args);
@@ -122,7 +123,7 @@ namespace ownzone
 
         private void locationUpdated(object sender, LocationUpdatedEventArgs evt)
         {
-            log.LogDebug("Got location update for {0}", evt.Name);
+            log.LogDebug("Handle location update for {0}.", evt.Name);
 
             var zones = zoneRepo.GetZones(evt.Name);
 
@@ -191,8 +192,8 @@ namespace ownzone
 
         protected virtual void OnZoneStatusChanged(ZoneStatusChangedEventArgs args)
         {
-            log.LogDebug("Dispatch status change for {0}.{1} to {2}",
-                args.SubName, args.ZoneName, args.Status);
+            log.LogDebug("Dispatch status change for {0}.{1}.",
+                args.SubName, args.ZoneName);
             var handler = ZoneStatusChanged;
             if (handler != null) {
                 handler(this, args);
@@ -231,8 +232,7 @@ namespace ownzone
 
         protected virtual void OnCurrentZoneChanged(CurrentZoneChangedEventArgs args)
         {
-            log.LogDebug("Dispatch zone change for {0} to {1}",
-                args.SubName, args.ZoneName);
+            log.LogDebug("Dispatch zone change for {0}.", args.SubName);
             var handler = CurrentZoneChanged;
             if (handler != null) {
                 handler(this, args);
