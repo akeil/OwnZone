@@ -36,6 +36,10 @@ namespace ownzone
         public string Host { get; set; }
 
         public int Port { get; set; }
+
+        public string Username { get; set; }
+
+        public string Password { get; set; }
     }
 
     public class MqttService : IMqttService
@@ -43,6 +47,8 @@ namespace ownzone
         private const string CLIENT_ID = "ownzone";
 
         private readonly ILogger<MqttService> log;
+
+        private readonly MqttConfig config;
         
         private readonly MqttClient client;
 
@@ -50,7 +56,7 @@ namespace ownzone
         {
             log = loggerFactory.CreateLogger<MqttService>();
 
-            var config = new MqttConfig();
+            config = new MqttConfig();
             Program.Configuration.GetSection("MQTT").Bind(config);
             var port = config.Port != 0 ? config.Port : MqttSettings.MQTT_BROKER_DEFAULT_PORT;
 
@@ -69,7 +75,9 @@ namespace ownzone
 
         public async Task ConnectAsync()
         {
-            await Task.Run( () => client.Connect(CLIENT_ID));
+            await Task.Run( () =>
+                client.Connect(CLIENT_ID, config.Username, config.Password)
+            );
             log.LogInformation("Connected to MQTT broker.");
         }
 
