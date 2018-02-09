@@ -66,3 +66,22 @@ require some additonal properties to describe the zone.
     ]
 }
 ```
+
+## Filters
+Location updates can be filtered by the following criteria:
+
+- **Accuracy**
+  If an update has an accuracy rating, drop updates with low accuracy.
+  Accuracy is specified in meters.
+- **Age**
+  Ignore location updates which are too old (e.g. messages that took a long
+  time in transport). The message must carry a UTC timestamp for thius filter
+  to work.
+
+Filters are part of the `appsettings.json`:
+```json
+    "Filters": {
+        "MaxAge": "1:30:00",
+        "MaxAccuracy": 25
+    }
+```

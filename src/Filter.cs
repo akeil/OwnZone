@@ -6,6 +6,7 @@ namespace ownzone
 {
     public interface IFilterService
     {
+        // Tell if the given Location Update should be processed.
         bool Accept(LocationUpdatedEventArgs evt);
     }
 
@@ -49,6 +50,7 @@ namespace ownzone
         bool Accept(LocationUpdatedEventArgs evt);
     }
 
+    // Filter events by their `Accuracy` (if that field is set).
     class AccuracyFilter : IFilter
     {
         private readonly int maxAccuracy;
@@ -70,6 +72,7 @@ namespace ownzone
         }
     }
 
+    // Accept only recent events.
     class AgeFilter : IFilter
     {
         private readonly TimeSpan maxAge;
