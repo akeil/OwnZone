@@ -22,15 +22,19 @@ namespace ownzone
 
         private readonly IStateRegistry states;
 
+        private readonly IFilterService filters;
+
         public string TopicPrefix { get; set; }
 
         public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
-            IRepository repository, IStateRegistry stateRegistry)
+            IRepository repository, IStateRegistry stateRegistry,
+            IFilterService filterService)
         {
             log = loggerFactory.CreateLogger<Engine>();
             mqtt = mqttService;
             repo = repository;
             states = stateRegistry;
+            filters = filterService;
 
             var config = Program.Configuration.GetSection("Engine");
             config.Bind(this);
@@ -74,10 +78,17 @@ namespace ownzone
         // Trigger a LocationUpdateEvent.
         protected virtual void OnLocationUpdated(LocationUpdatedEventArgs args)
         {
-            log.LogDebug("Dispatch location update for {0}.", args.Name);
-            var handler = LocationUpdated;
-            if (handler != null) {
-                handler(this, args);
+            if (filters.Accept(args))
+            {
+                log.LogDebug("Dispatch location update for {0}.", args.Name);
+                var handler = LocationUpdated;
+                if (handler != null) {
+                    handler(this, args);
+                }
+            }
+            else
+            {
+                log.LogDebug("Filtered location update for {0}.", args.Name);
             }
         }
 
@@ -207,6 +218,10 @@ namespace ownzone
 
         public string Name { get; set; }
 
+        public int Accuracy { get; set; }
+
+        public DateTime Timestamp { get; set; }
+
         public LocationUpdatedEventArgs CopyForName(string name)
         {
             var copy = (LocationUpdatedEventArgs)MemberwiseClone();
@@ -230,13 +245,19 @@ namespace ownzone
     // }
     class OwnTracksMessage
     {
+        private static readonly DateTime EPOCH = new DateTime(
+            1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         public string _type { get; set; }
 
         public double lat { get; set; }
 
         public double lon { get; set; }
 
+        // accuracy in meters
         public int acc { get; set; }
+
+        public long tst { get; set; }
 
         // Check if all required fields are set.
         //
@@ -249,7 +270,22 @@ namespace ownzone
 
         // convert to OwnZone message
         public LocationUpdatedEventArgs ToLocationUpdate(){
-            return new LocationUpdatedEventArgs() {Lat=lat, Lon = lon};
+            DateTime timestamp;
+            if (tst != 0)
+            {
+                timestamp = OwnTracksMessage.EPOCH.AddSeconds(tst);
+            }
+            else{
+                timestamp = DateTime.UtcNow;
+            }
+
+            return new LocationUpdatedEventArgs()
+            {
+                Lat = lat,
+                Lon = lon,
+                Accuracy = acc,
+                Timestamp = timestamp
+            };
         }
     }
 }

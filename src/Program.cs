@@ -25,6 +25,7 @@ namespace ownzone
                 .AddSingleton<IMqttService, MqttService>()
                 .AddSingleton<IRepository, Repository>()
                 .AddSingleton<IStateRegistry, StateRegistry>()
+                .AddSingleton<IFilterService, FilterService>()
                 .AddSingleton<IEngine, Engine>()
                 .BuildServiceProvider();
 
