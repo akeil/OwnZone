@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace ownzone
 {
@@ -39,9 +40,73 @@ namespace ownzone
             return Geo.EARTH_RADIUS * c;
         }
 
-        private static double rad(double angle)
+        public static double DistanceToPath(ILocation location, IEnumerable<ILocation> path)
         {
-            return Math.PI * angle / 180.0;
+            //TODO: make sure that the path contains at least 2 points?
+
+            ILocation prev = null;
+            var min = -1.0;
+            foreach (var current in path)
+            {
+                if (prev != null)
+                {
+                    var d = Math.Abs(crossTrackDistance(prev, current, location));
+                    if (min < 0 || d < min)
+                    {
+                        min = d;
+                    }
+                }
+
+                prev = current;
+            }
+
+            return min;
+        }
+
+        // Shortest distance of a point (location) to a path (start-end).
+        private static double crossTrackDistance(ILocation start, ILocation end, ILocation location)
+        {
+            // see:
+            // http://www.movable-type.co.uk/scripts/latlong.html
+
+            var startDistance = Distance(start, location);
+            var startBearing = bearing(start, location);
+            var pathBearing = bearing(start, end);
+
+            var a = Math.Sin(startDistance / EARTH_RADIUS);
+            var b = Math.Sin(startBearing - pathBearing);
+            var c = a * b;
+
+            return Math.Asin(c) * EARTH_RADIUS;
+
+        }
+
+        // Bearing from a start point towards an end point in *degrees*.
+        private static double bearing(ILocation start, ILocation end)
+        {
+            // see:
+            // http://www.movable-type.co.uk/scripts/latlong.html
+            var lat0 = rad(start.Lat);
+            var lat1 = rad(end.Lat);
+            var dLon = rad(start.Lon) - rad(end.Lon);
+
+            var a = Math.Sin(dLon) * Math.Cos(lat1);
+            var b0 = Math.Cos(lat0) * Math.Sin(lat1);
+            var b1 = Math.Sin(lat0) * Math.Cos(lat1) * Math.Cos(dLon);
+            var b = b0 - b1;
+
+            var bearingInRadians = Math.Atan2(a, b);
+            return deg(bearingInRadians);
+        }
+
+        private static double rad(double angleInDegrees)
+        {
+            return Math.PI * angleInDegrees / 180.0;
+        }
+
+        private static double deg(double angleInRadians)
+        {
+            return angleInRadians * 180.0 / Math.PI;
         }
     }
     

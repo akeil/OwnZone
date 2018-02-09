@@ -217,6 +217,10 @@ namespace ownzone
             {
                 zone = data.ToObject<Bounds>();
             }
+            else if (kind == "Path")
+            {
+                zone = data.ToObject<PaddedPath>();
+            }
             else
             {
                 var msg = String.Format("Unsupported Zone kind {0}.", kind);
@@ -272,7 +276,7 @@ namespace ownzone
                     "Invalid Lat/Lon {0},{1}", Lat, Lon));
             }
 
-            if (Radius == 0)
+            if (Radius <= 0)
             {
                 throw new InvalidZoneException(String.Format(
                     "Invalid radius {0}", Radius));
@@ -318,6 +322,43 @@ namespace ownzone
             {
                 throw new InvalidZoneException(String.Format(
                     "Invalid MaxLat/MaxLon {0},{1}", MaxLat, MaxLon));
+            }
+        }
+    }
+
+    class Location : ILocation
+    {
+        public double Lat { get; set; }
+
+        public double Lon { get; set; }
+    }
+
+    class PaddedPath : IZone
+    {
+        public List<Location> Points { get; set; }
+
+        public string Name { get; set; }
+
+        public int Padding { get; set; }
+
+        public (bool contains, double distance) Match(ILocation loc)
+        {
+            var distance = Geo.DistanceToPath(loc, Points);
+            return (distance <= Padding, distance);
+        }
+
+        public void Validate()
+        {
+            if (Points == null || Points.Count < 2)
+            {
+                throw new InvalidZoneException(
+                    "A path must have at least two points.");
+            }
+
+            if (Padding <= 0)
+            {
+                throw new InvalidZoneException(String.Format(
+                    "Invalid padding {0}", Padding));
             }
         }
     }
