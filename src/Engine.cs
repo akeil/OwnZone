@@ -136,7 +136,7 @@ namespace ownzone
             log.LogDebug("Handle location update for {0}.", evt.Name);
 
             var zones = await repo.GetZonesAsync(evt.Name);
-
+            var zoneUpdates = new List<Task>();
             // check all zones against the updated location
             // and compose a list of zones where we are "in"
             var matches = new List<(double, IZone)>();
@@ -145,8 +145,8 @@ namespace ownzone
                 var contained = zone.Contains(evt);
                 var distance = zone.Distance(evt);
 
-                await states.UpdateZoneStatusAsync(evt.Name, zone.Name,
-                    contained);
+                zoneUpdates.Add(states.UpdateZoneStatusAsync(evt.Name,
+                    zone.Name, contained));
                 if (contained)
                 {
                     matches.Add((distance, zone));
@@ -161,6 +161,7 @@ namespace ownzone
                 currentZoneName = matches[0].Item2.Name;
             }
             await states.UpdateCurrentZoneAsync(evt.Name, currentZoneName);
+            await Task.WhenAll(zoneUpdates);
         }
 
         // Delegate to sort a list of matches by relevance.
