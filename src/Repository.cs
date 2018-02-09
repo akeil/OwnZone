@@ -18,6 +18,8 @@ namespace ownzone
         // Check internal state and raise InvalidZoneException if invalid.
         void Validate();
 
+        // Tell if this Zone contains the given location
+        // and how far the location is from the Zone's center.
         (bool contains, double distance) Match(ILocation loc);
     }
 

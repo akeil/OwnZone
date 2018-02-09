@@ -46,9 +46,8 @@ namespace ownzone
             states.CurrentZoneChanged += currentZoneChanged;
             mqtt.MessageReceived += messageReceived;
 
-            var connected = mqtt.ConnectAsync();
             // subscriptions require completed connection
-            connected.Wait();
+            mqtt.ConnectAsync().Wait();
             subscribeForAccounts();
 
             log.LogInformation("Engine started.");
@@ -72,6 +71,7 @@ namespace ownzone
             }
         }
 
+        // Trigger a LocationUpdateEvent.
         protected virtual void OnLocationUpdated(LocationUpdatedEventArgs args)
         {
             log.LogDebug("Dispatch location update for {0}.", args.Name);
@@ -119,6 +119,7 @@ namespace ownzone
 
         // Location Update Events ----------------------------------------------
 
+        // Event handler for loaction updated events.
         private async void locationUpdated(object sender, LocationUpdatedEventArgs evt)
         {
             log.LogDebug("Handle location update for {0}.", evt.Name);
@@ -149,7 +150,7 @@ namespace ownzone
             await states.UpdateCurrentZoneAsync(evt.Name, currentZoneName);
         }
 
-        // delegate to sort a list of matches by relevance.
+        // Delegate to sort a list of matches by relevance.
         private static int byRelevance((double, IZone) a, (double, IZone) b)
         {
             if (a.Item1 > b.Item1)
@@ -164,6 +165,7 @@ namespace ownzone
 
         // Zone change events --------------------------------------------------
 
+        // Event handler for Current Zone Changed events.
         private async void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/current",
@@ -172,6 +174,7 @@ namespace ownzone
             await mqtt.PublishAsync(topic, message);
         }
 
+        // Event handler for Zone Status Changed events.
         private async void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/status/{2}",
