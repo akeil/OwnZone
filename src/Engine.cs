@@ -131,12 +131,14 @@ namespace ownzone
             var matches = new List<(double, IZone)>();
             foreach (var zone in zones)
             {
-                var match = zone.Match(evt);
+                var contained = zone.Contains(evt);
+                var distance = zone.Distance(evt);
+
                 await states.UpdateZoneStatusAsync(evt.Name, zone.Name,
-                    match.contains);
-                if (match.contains)
+                    contained);
+                if (contained)
                 {
-                    matches.Add((match.distance, zone));
+                    matches.Add((distance, zone));
                 }
             }
 

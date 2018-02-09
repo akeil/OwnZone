@@ -7,7 +7,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using GeoJSON.Net;
 using GeoJSON.Net.Feature;
+using GeoJSON.Net.Geometry;
 
 namespace ownzone
 {
@@ -16,12 +18,11 @@ namespace ownzone
     {   
         string Name { get; }
 
-        // Check internal state and raise InvalidZoneException if invalid.
-        void Validate();
+        // Tell if this Zone contains the given location.
+        bool Contains(ILocation location);
 
-        // Tell if this Zone contains the given location
-        // and how far the location is from the Zone's center.
-        (bool contains, double distance) Match(ILocation loc);
+        // Get the distance (meters) of the given location to the Zone center.
+        double Distance(ILocation location);
     }
 
     // Holds zone definitions
@@ -236,7 +237,7 @@ namespace ownzone
             }
 
             //zone.Name = prop.Name;
-            zone.Validate();
+            //zone.Validate();
             return zone;
         }
 
@@ -272,9 +273,6 @@ namespace ownzone
 
         [JsonProperty(PropertyName="topic", Required = Required.Always)]
         public string Topic { get; set; }
-
-        //[JsonProperty(PropertyName="features", Required = Required.Always)]
-        //public FeatureCollection Features { get; set; }
 
         public Account()
         {
@@ -317,23 +315,31 @@ namespace ownzone
             }
         }
 
-        public (bool contains, double distance) Match(ILocation loc)
-        {
-            return (false, 0.0);
-        }
-
-        public void Validate()
-        {
-
-        }
-
         public bool Contains(ILocation location)
         {
+            var kind = feature.Geometry.Type;
+            if (kind == GeoJSONObjectType.Point)
+            {
+
+            }
+            else if (kind == GeoJSONObjectType.LineString)
+            {
+
+            }
             return false;
         }
 
         public double Distance(ILocation location)
         {
+            var kind = feature.Geometry.Type;
+            if (kind == GeoJSONObjectType.Point)
+            {
+
+            }
+            else if (kind == GeoJSONObjectType.LineString)
+            {
+                
+            }
             return 0.0;
         }
     }
@@ -371,6 +377,16 @@ namespace ownzone
                 throw new InvalidZoneException(String.Format(
                     "Invalid radius {0}", Radius));
             }
+        }
+
+        public bool Contains(ILocation location)
+        {
+            return false;
+        }
+
+        public double Distance(ILocation location)
+        {
+            return 0.0;
         }
     }
 
@@ -414,6 +430,16 @@ namespace ownzone
                     "Invalid MaxLat/MaxLon {0},{1}", MaxLat, MaxLon));
             }
         }
+
+        public bool Contains(ILocation location)
+        {
+            return false;
+        }
+
+        public double Distance(ILocation location)
+        {
+            return 0.0;
+        }
     }
 
     class Location : ILocation
@@ -450,6 +476,16 @@ namespace ownzone
                 throw new InvalidZoneException(String.Format(
                     "Invalid padding {0}", Padding));
             }
+        }
+
+        public bool Contains(ILocation location)
+        {
+            return false;
+        }
+
+        public double Distance(ILocation location)
+        {
+            return 0.0;
         }
     }
 }
