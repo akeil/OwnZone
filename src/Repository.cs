@@ -7,13 +7,14 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using GeoJSON.Net.Feature;
 
 namespace ownzone
 {
     // Common interface for all zones.
     public interface IZone
     {   
-        string Name { get; set; }
+        string Name { get; }
 
         // Check internal state and raise InvalidZoneException if invalid.
         void Validate();
@@ -133,7 +134,14 @@ namespace ownzone
         {
             if (!accountsRead)
             {
-                await readAccountsAsync();
+                try
+                {
+                    await readAccountsAsync();
+                }
+                catch(Exception ex)
+                {
+                    log.LogError(ex, "Error reading account");
+                }
                 accountsRead = true;
             }
         }
@@ -157,7 +165,7 @@ namespace ownzone
             }
         }
 
-        private async Task<Account> readAccountAsync(string path)
+        private async Task<Account> xreadAccountAsync(string path)
         {
             log.LogInformation("Read account from {0}.", path);
 
@@ -227,25 +235,107 @@ namespace ownzone
                 throw new InvalidZoneException(msg);
             }
 
-            zone.Name = prop.Name;
+            //zone.Name = prop.Name;
             zone.Validate();
             return zone;
         }
+
+        private async Task<Account> readAccountAsync(string path)
+        {
+            log.LogInformation("Read account info from {0}.", path);
+
+            var name = Path.GetFileNameWithoutExtension(path);
+            log.LogInformation("Account name is {0}.", name);
+
+            var json = "";
+            using (StreamReader reader = new StreamReader(path, Encoding.UTF8))
+            {
+                json = await reader.ReadToEndAsync();
+            }
+            var account = JsonConvert.DeserializeObject<Account>(json);
+
+            log.LogInformation("Topic is {0}.", account.Topic);
+            log.LogInformation("Features: {0}", account.Features);
+
+            account.Foo();
+
+            account.Name = name;
+            return account;
+        }
     }
 
-    public class Account
+    public class Account : FeatureCollection
     {
         public List<IZone> Zones;
 
         public string Name { get; set; }
 
+        [JsonProperty(PropertyName="topic", Required = Required.Always)]
         public string Topic { get; set; }
+
+        //[JsonProperty(PropertyName="features", Required = Required.Always)]
+        //public FeatureCollection Features { get; set; }
 
         public Account()
         {
             Zones = new List<IZone>();
         }
 
+        public void Foo()
+        {
+            foreach (var feature in Features)
+            {
+                var wrapper = new ZoneWrapper(feature);
+                Console.WriteLine("Feature name {0}", wrapper.Name);
+            }
+        }
+
+    }
+
+    class ZoneWrapper : IZone
+    {
+        private readonly Feature feature;
+
+        public ZoneWrapper(Feature ft)
+        {
+            feature = ft;
+        }
+
+        public string Name
+        {
+            get
+            {
+                var name = feature.Properties["name"];
+                if (name != null)
+                {
+                    return name.ToString();
+                }
+                else
+                {
+                    return "";
+                }
+            }
+        }
+
+        public (bool contains, double distance) Match(ILocation loc)
+        {
+            return (false, 0.0);
+        }
+
+        public void Validate()
+        {
+
+        }
+
+        public bool Contains(ILocation location)
+        {
+            return false;
+        }
+
+        public double Distance(ILocation location)
+        {
+            return 0.0;
+        }
     }
 
     // Zone Types --------------------------------------------------------------
