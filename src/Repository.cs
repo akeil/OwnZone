@@ -13,7 +13,7 @@ using GeoJSON.Net.Geometry;
 
 namespace ownzone
 {
-    // Common interface for all zones.
+    // Common interface for zones.
     public interface IZone
     {   
         string Name { get; }
@@ -53,14 +53,6 @@ namespace ownzone
     class AccountReadException: Exception
     {
         public AccountReadException(string message)
-            : base(message)
-        {
-        }
-    }
-
-    class InvalidZoneException: Exception
-    {
-        public InvalidZoneException(string message)
             : base(message)
         {
         }
@@ -196,15 +188,23 @@ namespace ownzone
             var result = new List<IZone>();
             foreach (var feature in Features)
             {
-                result.Add(new ZoneAdapter(feature));
+                var kind = feature.Geometry.Type;
+                if (kind == GeoJSONObjectType.Point)
+                {
+                    result.Add(new PointAdapter(feature));
+                }
+                else if (kind == GeoJSONObjectType.LineString)
+                {
+                    result.Add(new LineStringAdapter(feature));
+                }
             }
             return result;
         }
     }
 
-    class ZoneAdapter : IZone
+    abstract class ZoneAdapter : IZone
     {
-        private readonly Feature feature;
+        protected readonly Feature feature;
 
         public ZoneAdapter(Feature ft)
         {
@@ -215,63 +215,112 @@ namespace ownzone
         {
             get
             {
-                var name = feature.Properties["name"];
-                if (name != null)
-                {
-                    return name.ToString();
-                }
-                else
-                {
-                    return "";
-                }
+                // InvalidCastException
+                // NullReferenceException
+                // KeyNotFoundException
+                return (string)feature.Properties["name"];
             }
         }
 
-        public bool Contains(ILocation location)
+        public abstract bool Contains(ILocation location);
+
+        public abstract double Distance(ILocation location);
+
+        protected ILocation asLocation(IPosition pos)
         {
-            var kind = feature.Geometry.Type;
-            if (kind == GeoJSONObjectType.Point)
+            return new Location()
             {
-                var radius = (int)feature.Properties["radius"];
-                return Distance(location) <= radius;
-            }
-            else if (kind == GeoJSONObjectType.LineString)
-            {
-                var padding = (int)feature.Properties["padding"];
-                return Distance(location) <= padding;
-            }
-            return false;
+                Lat = pos.Latitude,
+                Lon = pos.Longitude
+            };
+        }
+    }
+
+    class PointAdapter : ZoneAdapter
+    {
+        public PointAdapter(Feature ft) : base(ft)
+        {
         }
 
-        public double Distance(ILocation location)
+        private double radius
         {
-            var kind = feature.Geometry.Type;
-            if (kind == GeoJSONObjectType.Point)
+            get
             {
-                var p = (Point)feature.Geometry;
-                var loc = new Location()
+                // NullReferenceException
+                // KeyNotFoundException
+                double value;
+                object raw = feature.Properties["radius"];
+                try
                 {
-                    Lat = p.Coordinates.Latitude,
-                    Lon = p.Coordinates.Longitude
-                };
-                return Geo.Distance(location, loc);
-            }
-            else if (kind == GeoJSONObjectType.LineString)
-            {
-                var l = (LineString)feature.Geometry;
-                var path = new List<ILocation>();
-                foreach (var coordinate in l.Coordinates)
-                {
-                    path.Add(new Location()
-                    {
-                        Lat = coordinate.Latitude,
-                        Lon = coordinate.Longitude
-                    });
+                    value = (double)raw;
                 }
-                return Geo.DistanceToPath(location, path);
+                catch (InvalidCastException)
+                {
+                    // may again throw InvalidCastException
+                    var l = (long)raw;
+                    value = Convert.ToDouble(l);
+                }
+                return value;
             }
-            return 0.0;
         }
+
+        public override bool Contains(ILocation location)
+        {
+            return Distance(location) <= radius;
+        }
+
+        public override double Distance(ILocation location)
+        {
+            var p = (Point)feature.Geometry;
+            return Geo.Distance(location, asLocation(p.Coordinates));
+        }
+
+    }
+
+    class LineStringAdapter : ZoneAdapter
+    {
+        public LineStringAdapter(Feature ft) : base(ft)
+        {
+        }
+
+        private double padding
+        {
+            get
+            {
+                // NullReferenceException
+                // KeyNotFoundException
+                double value;
+                object raw = feature.Properties["padding"];
+                try
+                {
+                    value = (double)raw;
+                }
+                catch (InvalidCastException)
+                {
+                    // may again throw InvalidCastException
+                    var l = (long)raw;
+                    value = Convert.ToDouble(l);
+                }
+                return value;
+            }
+        }
+
+        public override bool Contains(ILocation location)
+        {
+            return Distance(location) <= padding;
+        }
+
+        public override double Distance(ILocation location)
+        {
+            var l = (LineString)feature.Geometry;
+            var path = new List<ILocation>();
+            foreach (var coordinate in l.Coordinates)
+            {
+                path.Add(asLocation(coordinate));
+            }
+            return Geo.DistanceToPath(location, path);
+        }
+
     }
 
     class Location : ILocation
