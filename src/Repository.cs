@@ -212,10 +212,7 @@ namespace ownzone
         {
             get
             {
-                // InvalidCastException
-                // NullReferenceException
-                // KeyNotFoundException
-                return (string)feature.Properties["name"];
+                return feature.Id;
             }
         }
 

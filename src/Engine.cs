@@ -207,6 +207,7 @@ namespace ownzone
             mqtt.Subscribe(topic);
         }
 
+        // Extract *Username* and *Devicename* from an OwnTracks topic.
         private (string, string) parseTopic(string topic)
         {
             var prefix = TopicPrefixIn + "/";
