@@ -9,7 +9,6 @@ using GeoJSON.Net.Geometry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Ownzone
 {
@@ -50,9 +49,19 @@ namespace Ownzone
 
         public async Task<IEnumerable<IZone>> GetZonesAsync(string name)
         {
-            var account = await readZonesAsync(name);
             var result = new List<IZone>();
-            foreach (var feature in account.Features)
+            FeatureCollection collection = null;
+            try
+            {
+                collection = await readZonesAsync(name);
+            }
+            catch (FileNotFoundException)
+            {
+                log.LogWarning("No zone definitions for {0}.", name);
+                return result;
+            }
+
+            foreach (var feature in collection.Features)
             {
                 var kind = feature.Geometry.Type;
                 if (kind == GeoJSONObjectType.Point)
