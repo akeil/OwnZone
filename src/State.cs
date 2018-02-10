@@ -86,9 +86,9 @@ namespace ownzone
             {
                 var args = new ZoneStatusChangedEventArgs()
                 {
-                    SubName=subName,
-                    ZoneName=zoneName,
-                    Status=status
+                    SubName = subName,
+                    ZoneName = zoneName,
+                    Status = status
                 };
                 OnZoneStatusChanged(args);
 
@@ -174,8 +174,7 @@ namespace ownzone
 
         private async Task loadZonesAsync()
         {
-            var path = Path.Combine(BaseDirectory, "state.zones.json");
-            var obj = await loadAsync(path);
+            var obj = await loadAsync("state.zones.json");
             if (obj != null)
             {
                 currentZone = obj.ToObject<Dictionary<string, string>>();
@@ -184,16 +183,16 @@ namespace ownzone
 
         private async Task loadStatusAsync()
         {
-            var path = Path.Combine(BaseDirectory, "state.status.json");
-            var obj = await loadAsync(path);
+            var obj = await loadAsync("state.status.json");
             if (obj != null)
             {
                 zoneStatus = obj.ToObject<Dictionary<string, bool>>();
             }
         }
 
-        private async Task<JObject> loadAsync(string path)
+        private async Task<JObject> loadAsync(string baseName)
         {
+            var path = Path.Combine(BaseDirectory, baseName);
             log.LogInformation("Load state from {0}.", path);
 
             JObject root = null;
@@ -242,7 +241,7 @@ namespace ownzone
             }
             catch (IOException ex)
             {
-                log.LogError(ex, "Failed to save state to {0}", path);
+                log.LogError(ex, "Failed to save state to {0}.", path);
             }
         }
     }
