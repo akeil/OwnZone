@@ -31,9 +31,17 @@ namespace ownzone
         Task PublishAsync(string topic, string payload);
     }
 
-    class MqttConfig
+    public class MqttService : IMqttService
     {
+        private readonly ILogger<MqttService> log;
+
+        private readonly MqttClient client;
+
+        private readonly string clientId;
+
         public const string DEFAULT_CLIENT_ID_PREFIX = "ownzone";
+
+        public string ClientIdPrefix { get; set; }
 
         // Hostname or IP address of the MQTT broker.
         public string Host { get; set; }
@@ -46,38 +54,28 @@ namespace ownzone
 
         // Password for MQTT authentication.
         public string Password { get; set; }
-    }
-
-    public class MqttService : IMqttService
-    {
-        private readonly ILogger<MqttService> log;
-
-        private readonly MqttConfig config;
-        
-        private readonly MqttClient client;
-
-        private readonly string clientId;
 
         public MqttService(ILoggerFactory loggerFactory,
-            IConfiguration cfg)
+            IConfiguration config)
         {
             log = loggerFactory.CreateLogger<MqttService>();
+            config.GetSection("MQTT").Bind(this);
 
-            config = new MqttConfig();
-            cfg.GetSection("MQTT").Bind(config);
-
-            var port = config.Port != 0
-                ? config.Port
+            var port = Port != 0
+                ? Port
                 : MqttSettings.MQTT_BROKER_DEFAULT_PORT;
-            client = new MqttClient(config.Host, port, false, null, null,
+
+            client = new MqttClient(Host, port, false, null, null,
                 MqttSslProtocols.None);
 
             client.MqttMsgPublishReceived += messageReceived;
 
             var machine = Environment.MachineName;
             var user = Environment.UserName;
-            clientId = String.Format("{0}-{1}-{2}",
-                MqttConfig.DEFAULT_CLIENT_ID_PREFIX, machine, user);
+            var prefix = ClientIdPrefix != null
+                ? ClientIdPrefix
+                : DEFAULT_CLIENT_ID_PREFIX;
+            clientId = String.Format("{0}-{1}-{2}", prefix, machine, user);
         }
 
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
@@ -90,11 +88,11 @@ namespace ownzone
         public async Task ConnectAsync()
         {
             await Task.Run( () =>
-                client.Connect(clientId, config.Username, config.Password)
+                client.Connect(clientId, Username, Password)
             );
 
             log.LogInformation("Connected to MQTT broker at {0} as {1}.",
-                config.Host, clientId);
+                Host, clientId);
         }
 
         // handle incoming MQTT message
@@ -140,9 +138,7 @@ namespace ownzone
         public async Task PublishAsync(string topic, string payload)
         {
             var message = Encoding.UTF8.GetBytes(payload);
-
-            await Task.Run( () => client.Publish(topic, message));
-
+            await Task.Run(() => client.Publish(topic, message));
             log.LogDebug("Published to topic {0}.", topic);
         }
     }
