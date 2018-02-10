@@ -70,8 +70,19 @@ namespace ownzone
         {
             log.LogDebug("Handle message for {0}.", evt.Topic);
             // TODO: throws
-            var args = convertOwnTracksMessage(evt.Message);
+            var ownTracks = parseOwnTracksMessage(evt.Message);
 
+            // we may receive the following _type values:
+            //   location  -> process
+            //   lwt      -> ignore
+            // see:
+            // http://owntracks.org/booklet/tech/json/
+            if (ownTracks._type != "location")
+            {
+                return;
+            }
+
+            var args = ownTracks.ToLocationUpdate();
             var userAndDevice = parseTopic(evt.Topic);
             args.Name = userAndDevice.Item1;
             args.Device = userAndDevice.Item2;
@@ -96,7 +107,7 @@ namespace ownzone
             }
         }
 
-        private LocationUpdatedEventArgs convertOwnTracksMessage(string jsonString)
+        private OwnTracksMessage parseOwnTracksMessage(string jsonString)
         {
             try
             {
@@ -105,7 +116,7 @@ namespace ownzone
                 {
                     throw new Exception("Invalid Message");
                 }
-                return raw.ToLocationUpdate();
+                return raw;
             }
             catch (JsonReaderException)
             {
