@@ -9,19 +9,17 @@ namespace ownzone
 {
     class Program
     {
-        public static IConfiguration Configuration { get; set; }
-
         static void Main(string[] args)
         {
-            ReadConfiguration();
-
+            var config = readConfiguration();
             var provider = new ServiceCollection()
                 .AddLogging(builder =>
                 {
-                    builder.AddConfiguration(Configuration.GetSection("Logging"))
+                    builder.AddConfiguration(config.GetSection("Logging"))
                     .AddConsole()
                     .AddDebug();
                 })
+                .AddSingleton<IConfiguration>(config)
                 .AddSingleton<IMqttService, MqttService>()
                 .AddSingleton<IRepository, Repository>()
                 .AddSingleton<IStateRegistry, StateRegistry>()
@@ -37,13 +35,13 @@ namespace ownzone
             engine.Run();
         }
 
-        static void ReadConfiguration()
+        private static IConfiguration readConfiguration()
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json");
             
-            Configuration = builder.Build();
+            return builder.Build();
         }
     }
 }

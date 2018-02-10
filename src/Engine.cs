@@ -26,8 +26,11 @@ namespace ownzone
 
         public string TopicPrefix { get; set; }
 
-        public Engine(ILoggerFactory loggerFactory, IMqttService mqttService,
-            IRepository repository, IStateRegistry stateRegistry,
+        public Engine(ILoggerFactory loggerFactory,
+            IConfiguration config,
+            IMqttService mqttService,
+            IRepository repository,
+            IStateRegistry stateRegistry,
             IFilterService filterService)
         {
             log = loggerFactory.CreateLogger<Engine>();
@@ -36,8 +39,7 @@ namespace ownzone
             states = stateRegistry;
             filters = filterService;
 
-            var config = Program.Configuration.GetSection("Engine");
-            config.Bind(this);
+            config.GetSection("Engine").Bind(this);
         }
 
         public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;

@@ -21,11 +21,10 @@ namespace ownzone
     {
         private readonly List<IFilter> filters;
 
-        public FilterService()
+        public FilterService(IConfiguration config)
         {
-            var config = Program.Configuration.GetSection("Filters");
             var settings = new FilterSettings();
-            config.Bind(settings);
+            config.GetSection("Filters").Bind(settings);
 
             filters = new List<IFilter>();
             filters.Add(new AgeFilter(TimeSpan.Parse(settings.MaxAge)));

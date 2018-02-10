@@ -44,7 +44,8 @@ namespace ownzone
 
         public string BaseDirectory { get; set; }
 
-        public StateRegistry(ILoggerFactory loggerFactory)
+        public StateRegistry(ILoggerFactory loggerFactory,
+            IConfiguration config)
         {
             log = loggerFactory.CreateLogger<StateRegistry>();
             currentZone = new Dictionary<string, string>();
@@ -52,8 +53,7 @@ namespace ownzone
             zoneStatusLoaded = false;
             currentZoneLoaded = false;
 
-            var config = Program.Configuration.GetSection("StateRegistry");
-            config.Bind(this);
+            config.GetSection("StateRegistry").Bind(this);
         }
 
         public event EventHandler<CurrentZoneChangedEventArgs> CurrentZoneChanged;

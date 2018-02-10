@@ -68,13 +68,13 @@ namespace ownzone
 
         private bool accountsRead;
 
-        public Repository(ILoggerFactory loggerFactory)
+        public Repository(ILoggerFactory loggerFactory,
+            IConfiguration config)
         {
             log = loggerFactory.CreateLogger<Repository>();
-            settings = new RepoSettings();
 
-            var config = Program.Configuration.GetSection("Repository");
-            config.Bind(settings);
+            settings = new RepoSettings();
+            config.GetSection("Repository").Bind(settings);
 
             log.LogInformation("Init Repository, basedir is {0}.",
                 settings.BaseDirectory);

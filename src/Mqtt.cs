@@ -58,14 +58,17 @@ namespace ownzone
 
         private readonly string clientId;
 
-        public MqttService(ILoggerFactory loggerFactory)
+        public MqttService(ILoggerFactory loggerFactory,
+            IConfiguration cfg)
         {
             log = loggerFactory.CreateLogger<MqttService>();
 
             config = new MqttConfig();
-            Program.Configuration.GetSection("MQTT").Bind(config);
-            var port = config.Port != 0 ? config.Port : MqttSettings.MQTT_BROKER_DEFAULT_PORT;
+            cfg.GetSection("MQTT").Bind(config);
 
+            var port = config.Port != 0
+                ? config.Port
+                : MqttSettings.MQTT_BROKER_DEFAULT_PORT;
             client = new MqttClient(config.Host, port, false, null, null,
                 MqttSslProtocols.None);
 
