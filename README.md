@@ -14,6 +14,23 @@ OZ needs a configuration file with the following contents:
 
 ```
 
+## MQTT Topics
+We rely on the [OwnTracks topic structure](http://owntracks.org/booklet/guide/topics/)
+which constructs topics like this:
+```
+<prefix>/<user>/<device>
+```
+
+The `prefix` must be set in `appsettings` under `Engine.TopicPrefixIn`.
+OwnZone will derive the username from the incoming OwnTracks messages
+and publish to the following topics:
+```
+<prefix>/<user>/current
+<prefix>/<user>/status/<zone>
+```
+The prefix for outgoing messages is defined in `appsettings` under 
+`Engine.TopicPrefixOut`.
+
 ## Zones
 *OwnZone* supports the following types of zone definitions:
 - Point with radius
