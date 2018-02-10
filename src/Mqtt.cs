@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace ownzone
+namespace Ownzone
 {
     public interface IMqttService
     {

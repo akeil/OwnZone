@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace ownzone
+namespace Ownzone
 {
 
     public interface ILocation

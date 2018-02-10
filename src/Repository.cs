@@ -11,7 +11,7 @@ using GeoJSON.Net;
 using GeoJSON.Net.Feature;
 using GeoJSON.Net.Geometry;
 
-namespace ownzone
+namespace Ownzone
 {
     // Common interface for zones.
     public interface IZone
