@@ -31,14 +31,6 @@ namespace ownzone
         Task<IEnumerable<IZone>> GetZonesAsync(string name);
     }
 
-    class AccountReadException: Exception
-    {
-        public AccountReadException(string message)
-            : base(message)
-        {
-        }
-    }
-
     public class Repository : IRepository
     {
         private readonly ILogger<Repository> log;
@@ -58,33 +50,9 @@ namespace ownzone
 
         public async Task<IEnumerable<IZone>> GetZonesAsync(string name)
         {
-            var account = await readAccountAsync(name);
-            return account.GetZones();
-        }
-
-        private async Task<Account> readAccountAsync(string name)
-        {
-            var path = Path.Combine(BaseDirectory, name + ".json");
-            log.LogInformation("Read account {0} from {1}.", name, path);
-
-            var jsonString = "";
-            using (StreamReader reader = new StreamReader(path, Encoding.UTF8))
-            {
-                jsonString = await reader.ReadToEndAsync();
-            }
-            var account = JsonConvert.DeserializeObject<Account>(jsonString);
-
-            return account;
-        }
-    }
-
-    public class Account : FeatureCollection
-    {
-
-        public IEnumerable<IZone> GetZones()
-        {
+            var account = await readZonesAsync(name);
             var result = new List<IZone>();
-            foreach (var feature in Features)
+            foreach (var feature in account.Features)
             {
                 var kind = feature.Geometry.Type;
                 if (kind == GeoJSONObjectType.Point)
@@ -98,15 +66,28 @@ namespace ownzone
             }
             return result;
         }
+
+        private async Task<FeatureCollection> readZonesAsync(string name)
+        {
+            var path = Path.Combine(BaseDirectory, name + ".json");
+            log.LogInformation("Read account {0} from {1}.", name, path);
+
+            var jsonString = "";
+            using (StreamReader reader = new StreamReader(path, Encoding.UTF8))
+            {
+                jsonString = await reader.ReadToEndAsync();
+            }
+            return JsonConvert.DeserializeObject<FeatureCollection>(jsonString);
+        }
     }
 
     abstract class ZoneAdapter : IZone
     {
         protected readonly Feature Feature;
 
-        public ZoneAdapter(Feature ft)
+        public ZoneAdapter(Feature feature)
         {
-            Feature = ft;
+            Feature = feature;
         }
 
         public string Name
@@ -133,7 +114,7 @@ namespace ownzone
 
     class PointAdapter : ZoneAdapter
     {
-        public PointAdapter(Feature ft) : base(ft)
+        public PointAdapter(Feature feature) : base(feature)
         {
         }
 
@@ -174,7 +155,7 @@ namespace ownzone
 
     class LineStringAdapter : ZoneAdapter
     {
-        public LineStringAdapter(Feature ft) : base(ft)
+        public LineStringAdapter(Feature feature) : base(feature)
         {
         }
 
