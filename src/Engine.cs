@@ -58,7 +58,13 @@ namespace ownzone
 
             // subscriptions require completed connection
             mqtt.ConnectAsync().Wait();
-            subscribe();
+
+            // OwnTracks topics are build like this:
+            //
+            //  [prefix]/[user]/[device]
+            //
+            // see: http://owntracks.org/booklet/guide/topics/
+            mqtt.Subscribe(TopicPrefixIn + "/+/+");
 
             log.LogInformation("Engine started.");
         }
@@ -66,23 +72,23 @@ namespace ownzone
         // Raw Messages --------------------------------------------------------
 
         // event handler for raw mqtt messages
-        private async void messageReceived(object sender, MessageReceivedEventArgs evt)
+        private void messageReceived(object sender, MessageReceivedEventArgs evt)
         {
             log.LogDebug("Handle message for {0}.", evt.Topic);
             // TODO: throws
-            var ownTracks = parseOwnTracksMessage(evt.Message);
+            var ownTracksMessage = parseOwnTracksMessage(evt.Message);
 
             // we may receive the following _type values:
             //   location  -> process
             //   lwt      -> ignore
             // see:
             // http://owntracks.org/booklet/tech/json/
-            if (ownTracks._type != "location")
+            if (ownTracksMessage._type != "location")
             {
                 return;
             }
 
-            var args = ownTracks.ToLocationUpdate();
+            var args = ownTracksMessage.ToLocationUpdate();
             var userAndDevice = parseTopic(evt.Topic);
             args.Name = userAndDevice.Item1;
             args.Device = userAndDevice.Item2;
@@ -111,16 +117,16 @@ namespace ownzone
         {
             try
             {
-                var raw = JsonConvert.DeserializeObject<OwnTracksMessage>(jsonString);
-                if (!raw.IsValid())
+                var message = JsonConvert.DeserializeObject<OwnTracksMessage>(jsonString);
+                if (!message.IsValid())
                 {
                     throw new Exception("Invalid Message");
                 }
-                return raw;
+                return message;
             }
             catch (JsonReaderException)
             {
-                log.LogWarning("Failed to parse JSON from message body");
+                log.LogWarning("Failed to parse JSON from message body.");
                 throw new Exception("Invalid Message");
             }
         }
@@ -133,7 +139,7 @@ namespace ownzone
             log.LogDebug("Handle location update for {0}.", evt.Name);
 
             var zones = await repo.GetZonesAsync(evt.Name);
-            var zoneUpdates = new List<Task>();
+            var zoneUpdateTasks = new List<Task>();
             // check all zones against the updated location
             // and compose a list of zones where we are "in"
             var matches = new List<(double, IZone)>();
@@ -141,35 +147,39 @@ namespace ownzone
             {
                 var contained = zone.Contains(evt);
                 var distance = zone.Distance(evt);
-
-                zoneUpdates.Add(states.UpdateZoneStatusAsync(evt.Name,
-                    zone.Name, contained));
                 if (contained)
                 {
                     matches.Add((distance, zone));
                 }
+
+                zoneUpdateTasks.Add(states.UpdateZoneStatusAsync(evt.Name,
+                    zone.Name, contained));
             }
 
             // find the best match
             var currentZoneName = "";
             if (matches.Count != 0)
             {
-                matches.Sort(byRelevance);
+                matches.Sort(byDistance);
                 currentZoneName = matches[0].Item2.Name;
             }
             await states.UpdateCurrentZoneAsync(evt.Name, currentZoneName);
-            await Task.WhenAll(zoneUpdates);
+            await Task.WhenAll(zoneUpdateTasks);
         }
 
-        // Delegate to sort a list of matches by relevance.
-        private static int byRelevance((double, IZone) a, (double, IZone) b)
+        // Delegate to sort a list of matches by distance.
+        private static int byDistance((double, IZone) one, (double, IZone) other)
         {
-            if (a.Item1 > b.Item1)
+            if (one.Item1 > other.Item1)
             {
                 return 1;
-            } else if (a.Item1 < b.Item1) {
+            }
+            else if (one.Item1 < other.Item1)
+            {
                 return -1;
-            } else {
+            }
+            else
+            {
                 return 0;
             }
         }
@@ -192,19 +202,6 @@ namespace ownzone
                 TopicPrefixOut, evt.SubName, evt.ZoneName);
             var message = evt.Status ? "in" : "out";
             await mqtt.PublishAsync(topic, message);
-        }
-
-        // Subscriptions -------------------------------------------------------
-
-        private void subscribe()
-        {
-            // OwnTracks topics are build like this:
-            //
-            //  [prefix]/[user]/[device]
-            //
-            // see: http://owntracks.org/booklet/guide/topics/
-            var topic = TopicPrefixIn + "/+/+";
-            mqtt.Subscribe(topic);
         }
 
         // Extract *Username* and *Devicename* from an OwnTracks topic.
@@ -273,7 +270,7 @@ namespace ownzone
         // did contain all of the expected fields.
         public bool IsValid()
         {
-            return lat != 0 && lon != 0;
+            return lat != 0 && lon != 0 && acc != 0;
         }
 
         // convert to OwnZone message
