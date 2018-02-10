@@ -25,16 +25,10 @@ namespace ownzone
         double Distance(ILocation location);
     }
 
-    // Holds zone definitions
+    // Holds zone definitions.
     public interface IRepository
     {
-        Task<IEnumerable<IZone>> GetZonesAsync(string userName);
-    }
-
-    // Configuration settings for the Zone Repository.
-    class RepoSettings
-    {
-        public string BaseDirectory { get; set; }
+        Task<IEnumerable<IZone>> GetZonesAsync(string name);
     }
 
     class AccountReadException: Exception
@@ -49,18 +43,17 @@ namespace ownzone
     {
         private readonly ILogger<Repository> log;
 
-        private readonly RepoSettings settings;
+        public string BaseDirectory { get; set; }
 
         public Repository(ILoggerFactory loggerFactory,
             IConfiguration config)
         {
             log = loggerFactory.CreateLogger<Repository>();
 
-            settings = new RepoSettings();
-            config.GetSection("Repository").Bind(settings);
+            config.GetSection("Repository").Bind(this);
 
             log.LogInformation("Init Repository, basedir is {0}.",
-                settings.BaseDirectory);
+                BaseDirectory);
         }
 
         public async Task<IEnumerable<IZone>> GetZonesAsync(string name)
@@ -71,24 +64,22 @@ namespace ownzone
 
         private async Task<Account> readAccountAsync(string name)
         {
-            var path = Path.Combine(settings.BaseDirectory, name + ".json");
+            var path = Path.Combine(BaseDirectory, name + ".json");
             log.LogInformation("Read account {0} from {1}.", name, path);
 
-            var json = "";
+            var jsonString = "";
             using (StreamReader reader = new StreamReader(path, Encoding.UTF8))
             {
-                json = await reader.ReadToEndAsync();
+                jsonString = await reader.ReadToEndAsync();
             }
-            var account = JsonConvert.DeserializeObject<Account>(json);
+            var account = JsonConvert.DeserializeObject<Account>(jsonString);
 
-            account.Name = name;
             return account;
         }
     }
 
     public class Account : FeatureCollection
     {
-        public string Name { get; set; }
 
         public IEnumerable<IZone> GetZones()
         {
@@ -111,18 +102,18 @@ namespace ownzone
 
     abstract class ZoneAdapter : IZone
     {
-        protected readonly Feature feature;
+        protected readonly Feature Feature;
 
         public ZoneAdapter(Feature ft)
         {
-            feature = ft;
+            Feature = ft;
         }
 
         public string Name
         {
             get
             {
-                return feature.Id;
+                return Feature.Id;
             }
         }
 
@@ -153,7 +144,7 @@ namespace ownzone
                 // NullReferenceException
                 // KeyNotFoundException
                 double value;
-                object raw = feature.Properties["radius"];
+                object raw = Feature.Properties["radius"];
                 try
                 {
                     value = (double)raw;
@@ -175,7 +166,7 @@ namespace ownzone
 
         public override double Distance(ILocation location)
         {
-            var p = (Point)feature.Geometry;
+            var p = (Point)Feature.Geometry;
             return Geo.Distance(location, asLocation(p.Coordinates));
         }
 
@@ -194,7 +185,7 @@ namespace ownzone
                 // NullReferenceException
                 // KeyNotFoundException
                 double value;
-                object raw = feature.Properties["padding"];
+                object raw = Feature.Properties["padding"];
                 try
                 {
                     value = (double)raw;
@@ -216,7 +207,7 @@ namespace ownzone
 
         public override double Distance(ILocation location)
         {
-            var l = (LineString)feature.Geometry;
+            var l = (LineString)Feature.Geometry;
             var path = new List<ILocation>();
             foreach (var coordinate in l.Coordinates)
             {
