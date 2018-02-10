@@ -180,9 +180,6 @@ namespace ownzone
     {
         public string Name { get; set; }
 
-        [JsonProperty(PropertyName="topic", Required = Required.Always)]
-        public string Topic { get; set; }
-
         public IEnumerable<IZone> GetZones()
         {
             var result = new List<IZone>();

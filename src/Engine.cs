@@ -24,7 +24,11 @@ namespace ownzone
 
         private readonly IFilterService filters;
 
-        public string TopicPrefix { get; set; }
+        // OwnTracks MQTT base topic to subscribe to.
+        public string TopicPrefixIn { get; set; }
+
+        // MQTT base topic to publish to.
+        public string TopicPrefixOut { get; set; }
 
         public Engine(ILoggerFactory loggerFactory,
             IConfiguration config,
@@ -54,7 +58,7 @@ namespace ownzone
 
             // subscriptions require completed connection
             mqtt.ConnectAsync().Wait();
-            subscribeForAccounts();
+            subscribe();
 
             log.LogInformation("Engine started.");
         }
@@ -66,15 +70,13 @@ namespace ownzone
         {
             log.LogDebug("Handle message for {0}.", evt.Topic);
             // TODO: throws
-            var baseargs = convertOwnTracksMessage(evt.Message);
+            var args = convertOwnTracksMessage(evt.Message);
 
-            // dispatch LocationUpdated events for each affected subscription
-            var names = await lookupAccountsAsync(evt.Topic);
-            foreach (var name in names)
-            {
-                var args = baseargs.CopyForName(name);
-                OnLocationUpdated(args);
-            }
+            var userAndDevice = parseTopic(evt.Topic);
+            args.Name = userAndDevice.Item1;
+            args.Device = userAndDevice.Item2;
+
+            OnLocationUpdated(args);
         }
 
         // Trigger a LocationUpdateEvent.
@@ -112,27 +114,9 @@ namespace ownzone
             }
         }
 
-        // find the accounts that are interested in the given topic.
-        private async Task<List<string>> lookupAccountsAsync(string topic)
-        {
-            var result = new List<string>();
-
-            var names = await repo.GetAccountNamesAsync();
-            foreach (var name in names)
-            {
-                var account = await repo.GetAccountAsync(name);
-                if (account.Topic == topic)
-                {
-                    result.Add(account.Name);
-                }
-            }
-
-            return result;
-        }
-
         // Location Update Events ----------------------------------------------
 
-        // Event handler for loaction updated events.
+        // Event handler for location updated events.
         private async void locationUpdated(object sender, LocationUpdatedEventArgs evt)
         {
             log.LogDebug("Handle location update for {0}.", evt.Name);
@@ -185,7 +169,7 @@ namespace ownzone
         private async void currentZoneChanged(object sender, CurrentZoneChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/current",
-                TopicPrefix, evt.SubName);
+                TopicPrefixOut, evt.SubName);
             var message = evt.ZoneName != null ? evt.ZoneName : "";
             await mqtt.PublishAsync(topic, message);
         }
@@ -194,21 +178,35 @@ namespace ownzone
         private async void zoneStatusChanged(object sender, ZoneStatusChangedEventArgs evt)
         {
             var topic = String.Format("{0}/{1}/status/{2}",
-                TopicPrefix, evt.SubName, evt.ZoneName);
+                TopicPrefixOut, evt.SubName, evt.ZoneName);
             var message = evt.Status ? "in" : "out";
             await mqtt.PublishAsync(topic, message);
         }
 
         // Subscriptions -------------------------------------------------------
 
-        private async Task subscribeForAccounts()
+        private void subscribe()
         {
-            foreach (var name in repo.GetAccountNames())
+            // OwnTracks topics are build like this:
+            //
+            //  [prefix]/[user]/[device]
+            //
+            // see: http://owntracks.org/booklet/guide/topics/
+            var topic = TopicPrefixIn + "/+/+";
+            mqtt.Subscribe(topic);
+        }
+
+        private (string, string) parseTopic(string topic)
+        {
+            var prefix = TopicPrefixIn + "/";
+            if (topic.StartsWith(prefix))
             {
-                log.LogInformation("Subscribe for account {0}", name);
-                var account = repo.GetAccount(name);
-                await mqtt.SubscribeAsync(account.Topic);
+                var parts = topic.Remove(0, prefix.Length).Split("/", 2);
+                return (parts[0], parts[1]);
             }
+
+            throw new ArgumentException(String.Format("Invalid topic {0}",
+                topic));
         }
     }
 
@@ -221,16 +219,11 @@ namespace ownzone
 
         public string Name { get; set; }
 
+        public string Device { get; set; }
+
         public int Accuracy { get; set; }
 
         public DateTime Timestamp { get; set; }
-
-        public LocationUpdatedEventArgs CopyForName(string name)
-        {
-            var copy = (LocationUpdatedEventArgs)MemberwiseClone();
-            copy.Name = name;
-            return copy;
-        }
     }
 
     // Deserialization helper for OwnTrack messages.
