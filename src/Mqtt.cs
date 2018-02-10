@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
 
-namespace Ownzone
+namespace OwnZone
 {
     public interface IMqttService
     {

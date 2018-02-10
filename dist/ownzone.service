@@ -1,0 +1,13 @@
+[Unit]
+Description=GeoFencing for OwnTracks messages
+Requires=mosquitto.service
+After=mosquitto.service
+
+[Service]
+ExecStart=/opt/ownzone/bin/ownzone
+WorkingDirectory=/opt/ownzone
+User=ownzone
+Group=ownzone
+
+[Install]
+WantedBy=default.target

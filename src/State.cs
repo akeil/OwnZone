@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Ownzone
+namespace OwnZone
 {
     // Holds status values for zones.
     public interface IStateRegistry

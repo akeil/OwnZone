@@ -10,7 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace Ownzone
+namespace OwnZone
 {
     // Common interface for zones.
     public interface IZone
